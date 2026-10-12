@@ -8,7 +8,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { MAP } from '@/game/config'
+import { toMapPx } from '@/game/coords'
 import type { GameObject, ObjectType } from '@/game/types'
 
 // общий компонент для статичных объектов и юнитов
@@ -25,10 +25,11 @@ const pushEmit = () => emit('select')
 // стили, которые зависят от данных объекта (координаты, размер, цвет), поэтому тут, а не в <style>
 // пересчитывается, когда объект двигается
 const style = computed(() => {
-  // (0,0) мира находится в центре карты, поэтому прибавляем половину карты
+  // position - центр объекта, поэтому вычитаем половину размера
+  const center = toMapPx(props.object.position)
   return {
-    left: props.object.x + MAP.width / 2 - props.type.width / 2 + 'px',
-    top: props.object.y + MAP.height / 2 - props.type.height / 2 + 'px',
+    left: center.x - props.type.width / 2 + 'px',
+    top: center.y - props.type.height / 2 + 'px',
     width: props.type.width + 'px',
     height: props.type.height + 'px',
     background: props.type.color,

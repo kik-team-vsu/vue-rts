@@ -39,6 +39,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import GameObject from './GameObject.vue'
 import { CAMERA, MAP, OBJECT_TYPES, START_OBJECTS, START_UNITS, UNIT_TYPES } from '@/game/config'
+import { toMapPx } from '@/game/coords'
 import type { Point, StaticObject, Unit } from '@/game/types'
 
 // перетаскивание камеры средней кнопкой мыши
@@ -78,9 +79,10 @@ const worldStyle = computed(() => ({
 const targetStyle = computed(() => {
   const target = selectedUnit.value?.target
   if (target) {
+    const point = toMapPx(target)
     return {
-      left: target.x + MAP.width / 2 + 'px',
-      top: target.y + MAP.height / 2 + 'px',
+      left: point.x + 'px',
+      top: point.y + 'px',
     }
   } else {
     return {}
@@ -187,18 +189,17 @@ const moveCamera = (secondsPassed: number) => {
 const moveUnits = (secondsPassed: number) => {
   for (const u of units.value) {
     if (u.target) {
-      const dx = u.target.x - u.x
-      const dy = u.target.y - u.y
+      const dx = u.target.x - u.position.x
+      const dy = u.target.y - u.position.y
       const dist = Math.hypot(dx, dy)
       const step = UNIT_TYPES[u.type].speedPxPerSecond * secondsPassed
 
       if (dist <= step) {
-        u.x = u.target.x
-        u.y = u.target.y
+        u.position = u.target
         u.target = null
       } else {
-        u.x += (dx / dist) * step
-        u.y += (dy / dist) * step
+        u.position.x += (dx / dist) * step
+        u.position.y += (dy / dist) * step
       }
     }
   }

@@ -15,9 +15,10 @@ export interface UnitType extends ObjectType {
 }
 
 // любой игровой объект
-export interface GameObject extends Point {
+export interface GameObject {
   id: number
   type: string
+  position: Point
 }
 
 // статичный объект на карте

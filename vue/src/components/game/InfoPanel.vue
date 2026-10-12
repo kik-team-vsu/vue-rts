@@ -3,7 +3,7 @@
     <template v-if="selected">
       <div class="name">{{ typeName }}</div>
       <div>ID: {{ selected.id }}</div>
-      <div>Координаты: {{ Math.round(selected.x) }}, {{ Math.round(selected.y) }}</div>
+      <div>Координаты: {{ Math.round(selected.position.x) }}, {{ Math.round(selected.position.y) }}</div>
       <template v-if="unit">
         <div>Скорость: {{ unitSpeed }}</div>
         <div>{{ unitAction }}</div>

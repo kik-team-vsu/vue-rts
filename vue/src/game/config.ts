@@ -18,18 +18,18 @@ export const UNIT_TYPES: Record<string, UnitType> = {
 }
 
 export const START_OBJECTS: StaticObject[] = [
-  { id: 1, type: 'house', x: -200, y: -150 },
-  { id: 2, type: 'house', x: 350, y: 250 },
-  { id: 3, type: 'tree', x: 150, y: -300 },
-  { id: 4, type: 'tree', x: -350, y: 250 },
-  { id: 5, type: 'tree', x: 550, y: -150 },
-  { id: 6, type: 'castle', x: -550, y: -200 },
+  { id: 1, type: 'house', position: { x: -200, y: -150 } },
+  { id: 2, type: 'house', position: { x: 350, y: 250 } },
+  { id: 3, type: 'tree', position: { x: 150, y: -300 } },
+  { id: 4, type: 'tree', position: { x: -350, y: 250 } },
+  { id: 5, type: 'tree', position: { x: 550, y: -150 } },
+  { id: 6, type: 'castle', position: { x: -550, y: -200 } },
 ]
 
 export const START_UNITS: Unit[] = [
-  { id: 7, type: 'worker', x: 0, y: 0, target: null },
-  { id: 8, type: 'worker', x: 60, y: 40, target: null },
-  { id: 9, type: 'warrior', x: -100, y: 120, target: null},
-  { id: 10, type: 'warrior', x: -150, y: 80, target: null },
-  { id: 11, type: 'warrior', x: 100, y: 100, target: null },
+  { id: 7, type: 'worker', position: { x: 0, y: 0 }, target: null },
+  { id: 8, type: 'worker', position: { x: 60, y: 40 }, target: null },
+  { id: 9, type: 'warrior', position: { x: -100, y: 120 }, target: null },
+  { id: 10, type: 'warrior', position: { x: -150, y: 80 }, target: null },
+  { id: 11, type: 'warrior', position: { x: 100, y: 100 }, target: null },
 ]
