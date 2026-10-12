@@ -42,8 +42,11 @@ import { CAMERA, MAP, OBJECT_TYPES, START_OBJECTS, START_UNITS, UNIT_TYPES } fro
 import type { Point, StaticObject, Unit } from '@/game/types'
 
 // перетаскивание камеры средней кнопкой мыши
+// dragLast - позиция мыши, до которой камера уже сдвинута, dragCurrent - последняя позиция мыши
+// не reactive: сдвиг применяется в игровом цикле (dragCamera), а не на каждое событие мыши
 let dragging = false
 let dragLast: Point = { x: 0, y: 0 }
+let dragCurrent: Point = { x: 0, y: 0 }
 
 const selected = defineModel<StaticObject | Unit | null>('selected', { default: null })
 const screenView = ref<HTMLElement | null>(null)
@@ -128,22 +131,32 @@ const initSelect = () => {
 const startDrag = (e: MouseEvent) => {
   dragging = true
   dragLast = { x: e.clientX, y: e.clientY }
+  dragCurrent = dragLast
 }
 
 const onWindowMouseMove = (e: MouseEvent) => {
   if (!dragging) {
     return
   }
-  camera.x -= e.clientX - dragLast.x
-  camera.y -= e.clientY - dragLast.y
-  dragLast = { x: e.clientX, y: e.clientY }
-  clampCamera()
+  dragCurrent = { x: e.clientX, y: e.clientY }
 }
 
 const onWindowMouseUp = (e: MouseEvent) => {
   if (e.button === 1) {
+    // применяем сдвиг, накопленный после последнего кадра
+    dragCamera()
     dragging = false
   }
+}
+
+const dragCamera = () => {
+  if (!dragging) {
+    return
+  }
+  camera.x -= dragCurrent.x - dragLast.x
+  camera.y -= dragCurrent.y - dragLast.y
+  dragLast = dragCurrent
+  clampCamera()
 }
 
 const moveCamera = (secondsPassed: number) => {
@@ -201,6 +214,7 @@ const tick = (time: number) => {
   const secondsPassed = Math.min((time - lastTime) / MILLIS_IN_SECOND, MAX_FRAME_SECONDS)
   lastTime = time
 
+  dragCamera()
   moveCamera(secondsPassed)
   moveUnits(secondsPassed)
 
