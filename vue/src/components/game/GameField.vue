@@ -17,6 +17,12 @@
           :selected="o === selected"
           @select="selected = o"/>
 
+      <!-- линия пути юнитов -->
+      <div
+          v-if="selectedUnit?.target"
+          class="path-line"
+          :style="pathStyle" />
+
       <GameObject
           v-for="u in units"
           :key="u.id"
@@ -83,6 +89,24 @@ const targetStyle = computed(() => {
     return {
       left: point.x + 'px',
       top: point.y + 'px',
+    }
+  } else {
+    return {}
+  }
+})
+
+const pathStyle = computed(() => {
+  const unit = selectedUnit.value
+  if (unit?.target) {
+    const from = toMapPx(unit.position)
+    const to = toMapPx(unit.target)
+    const dx = to.x - from.x
+    const dy = to.y - from.y
+    return {
+      left: from.x + 'px',
+      top: from.y + 'px',
+      width: Math.hypot(dx, dy) + 'px',
+      transform: `rotate(${Math.atan2(dy, dx)}rad)`,
     }
   } else {
     return {}
@@ -260,6 +284,15 @@ onUnmounted(() => {
 
 .unit {
   border-radius: 50%;
+}
+
+.path-line {
+  position: absolute;
+  height: 0;
+  margin-top: -1px;
+  border-top: 2px dashed rgba(255, 255, 255, 0.7);
+  transform-origin: left center;
+  pointer-events: none;
 }
 
 .target-mark {
