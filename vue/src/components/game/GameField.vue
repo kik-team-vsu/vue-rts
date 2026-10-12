@@ -41,8 +41,7 @@ import type { Point, StaticObject, Unit } from '@/game/types'
 
 // перетаскивание камеры средней кнопкой мыши
 let dragging = false
-let lastX = 0
-let lastY = 0
+let dragLast: Point = { x: 0, y: 0 }
 
 const selected = defineModel<StaticObject | Unit | null>('selected', { default: null })
 const screenView = ref<HTMLElement | null>(null)
@@ -126,18 +125,16 @@ const initSelect = () => {
 
 const startDrag = (e: MouseEvent) => {
   dragging = true
-  lastX = e.clientX
-  lastY = e.clientY
+  dragLast = { x: e.clientX, y: e.clientY }
 }
 
 const onWindowMouseMove = (e: MouseEvent) => {
   if (!dragging) {
     return
   }
-  camera.x -= e.clientX - lastX
-  camera.y -= e.clientY - lastY
-  lastX = e.clientX
-  lastY = e.clientY
+  camera.x -= e.clientX - dragLast.x
+  camera.y -= e.clientY - dragLast.y
+  dragLast = { x: e.clientX, y: e.clientY }
   clampCamera()
 }
 
