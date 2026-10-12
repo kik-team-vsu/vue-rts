@@ -20,15 +20,15 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useStore } from 'vuex'
 import { OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
 import type { StaticObject, Unit } from '@/game/types'
 
-const props = defineProps<{
-  selected: StaticObject | Unit | null
-}>()
+const store = useStore()
+const selected = computed<StaticObject | Unit | null>(() => store.getters['game/getSelected'])
 
 const unit = computed(() => {
-  const selectedObject = props.selected
+  const selectedObject = selected.value
   if (!selectedObject) {
     return null
   }
@@ -44,8 +44,8 @@ const typeName = computed(() => {
   if (unit.value) {
     return UNIT_TYPES[unit.value.type].name
   }
-  if (props.selected) {
-    return OBJECT_TYPES[props.selected.type].name
+  if (selected.value) {
+    return OBJECT_TYPES[selected.value.type].name
   }
   return ''
 })

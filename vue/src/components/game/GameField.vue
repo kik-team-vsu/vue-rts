@@ -14,8 +14,8 @@
           :key="o.id"
           :object="o"
           :type="OBJECT_TYPES[o.type]"
-          :selected="o === selected"
-          @select="selected = o"/>
+          :selected="o.id === selectedId"
+          @select="select(o.id)"/>
 
       <!-- линия пути юнитов -->
       <div
@@ -29,8 +29,8 @@
           class="unit"
           :object="u"
           :type="UNIT_TYPES[u.type]"
-          :selected="u === selected"
-          @select="selected = u"/>
+          :selected="u.id === selectedId"
+          @select="select(u.id)"/>
 
       <div
           v-if="selectedUnit?.target"
@@ -43,8 +43,9 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { useStore } from 'vuex'
 import GameObject from './GameObject.vue'
-import { CAMERA, MAP, OBJECT_TYPES, START_OBJECTS, START_UNITS, UNIT_TYPES } from '@/game/config'
+import { CAMERA, MAP, OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
 import { toMapPx } from '@/game/coords'
 import type { Point, StaticObject, Unit } from '@/game/types'
 
@@ -55,23 +56,16 @@ let dragging = false
 let dragLast: Point = { x: 0, y: 0 }
 let dragCurrent: Point = { x: 0, y: 0 }
 
-const selected = defineModel<StaticObject | Unit | null>('selected', { default: null })
+// объекты, юниты и выбор хранятся в store
+const store = useStore()
+const objects = computed<StaticObject[]>(() => store.getters['game/getObjects'])
+const units = computed<Unit[]>(() => store.getters['game/getUnits'])
+const selectedId = computed<number | null>(() => store.getters['game/getSelectedId'])
+const selectedUnit = computed<Unit | null>(() => store.getters['game/getSelectedUnit'])
+
 const screenView = ref<HTMLElement | null>(null)
 const camera = reactive({ x: 0, y: 0 })
 const mouse = { x: 0, y: 0, inside: false }
-const objects = ref<StaticObject[]>(structuredClone(START_OBJECTS))
-const units = ref<Unit[]>(structuredClone(START_UNITS))
-
-const selectedUnit = computed(() => {
-  const selectedValue = selected.value
-  if (!selectedValue) {
-    return null
-  }
-  if ('target' in selectedValue) {
-    return selectedValue
-  }
-  return null
-})
 
 // стили карты: размер, шаг сетки и сдвиг под камеру
 // translate ставит точку camera в центр экрана: если камера едет вправо, то карта уезжает влево
@@ -134,15 +128,7 @@ const resetMouse = () => {
 }
 
 const moveSelected = (e: MouseEvent) => {
-  if (!selectedUnit.value) {
-    return
-  }
-  const point = toWorld(e)
-  // чтобы не уйти за границы карты
-  selectedUnit.value.target = {
-    x: Math.max(-MAP.width / 2, Math.min(MAP.width / 2, point.x)),
-    y: Math.max(-MAP.height / 2, Math.min(MAP.height / 2, point.y)),
-  }
+  store.dispatch('game/moveSelected', toWorld(e))
 }
 
 const clampCamera = () => {
@@ -150,8 +136,13 @@ const clampCamera = () => {
   camera.y = Math.max(-MAP.height / 2, Math.min(MAP.height / 2, camera.y))
 }
 
+const select = (id: number | null) => {
+  store.dispatch('game/select', id)
+}
+
+// клик по пустому месту снимает выбор
 const initSelect = () => {
-  selected.value = null
+  select(null)
 }
 
 const startDrag = (e: MouseEvent) => {
@@ -210,25 +201,6 @@ const moveCamera = (secondsPassed: number) => {
   clampCamera()
 }
 
-const moveUnits = (secondsPassed: number) => {
-  for (const u of units.value) {
-    if (u.target) {
-      const dx = u.target.x - u.position.x
-      const dy = u.target.y - u.position.y
-      const dist = Math.hypot(dx, dy)
-      const step = UNIT_TYPES[u.type].speedPxPerSecond * secondsPassed
-
-      if (dist <= step) {
-        u.position = u.target
-        u.target = null
-      } else {
-        u.position.x += (dx / dist) * step
-        u.position.y += (dy / dist) * step
-      }
-    }
-  }
-}
-
 let frameId = 0
 let lastTime = 0
 
@@ -241,7 +213,7 @@ const tick = (time: number) => {
 
   dragCamera()
   moveCamera(secondsPassed)
-  moveUnits(secondsPassed)
+  store.dispatch('game/moveUnits', secondsPassed)
 
   frameId = requestAnimationFrame(tick)
 }
