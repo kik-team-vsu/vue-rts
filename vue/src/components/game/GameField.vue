@@ -9,17 +9,20 @@
       @mouseleave="() => resetMouse()">
 
     <div class="world" :style="worldStyle">
-      <GameStaticObject
+      <GameObject
           v-for="o in objects"
           :key="o.id"
           :object="o"
+          :type="OBJECT_TYPES[o.type]"
           :selected="o === selected"
           @select="selected = o"/>
 
-      <GameUnit
+      <GameObject
           v-for="u in units"
           :key="u.id"
-          :unit="u"
+          class="unit"
+          :object="u"
+          :type="UNIT_TYPES[u.type]"
           :selected="u === selected"
           @select="selected = u"/>
 
@@ -34,9 +37,8 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
-import GameStaticObject from './GameStaticObject.vue'
-import GameUnit from './GameUnit.vue'
-import { CAMERA, MAP, START_OBJECTS, START_UNITS, UNIT_TYPES } from '@/game/config'
+import GameObject from './GameObject.vue'
+import { CAMERA, MAP, OBJECT_TYPES, START_OBJECTS, START_UNITS, UNIT_TYPES } from '@/game/config'
 import type { Point, StaticObject, Unit } from '@/game/types'
 
 // перетаскивание камеры средней кнопкой мыши
@@ -239,6 +241,10 @@ onUnmounted(() => {
   background-image:
     linear-gradient(to right, rgba(0, 0, 0, 0.2) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(0, 0, 0, 0.2) 1px, transparent 1px);
+}
+
+.unit {
+  border-radius: 50%;
 }
 
 .target-mark {
