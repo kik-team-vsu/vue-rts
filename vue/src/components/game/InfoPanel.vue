@@ -68,7 +68,7 @@ const unitAction = computed(() => {
 })
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .info-panel {
   position: absolute;
   left: 30px;

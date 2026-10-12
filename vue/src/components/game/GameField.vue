@@ -2,7 +2,7 @@
   <div
       ref="screenView"
       class="screen-view"
-      @mousedown.left="selected = null"
+      @mousedown.left="() => initSelect()"
       @mousedown.middle.prevent="(event) => startDrag(event)"
       @contextmenu.prevent="(event) => moveSelected(event)"
       @mousemove="(event) => saveMouse(event)"
@@ -120,6 +120,10 @@ const clampCamera = () => {
   camera.y = Math.max(-MAP.height / 2, Math.min(MAP.height / 2, camera.y))
 }
 
+const initSelect = () => {
+  selected.value = null
+}
+
 const startDrag = (e: MouseEvent) => {
   dragging = true
   lastX = e.clientX
@@ -220,7 +224,7 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .screen-view {
   position: relative;
   width: 100%;

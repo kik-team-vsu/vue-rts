@@ -3,7 +3,7 @@
       class="unit"
       :class="{ selected }"
       :style="style"
-      @mousedown.left.stop="emit('select')"
+      @mousedown.left.stop="() => pushEmit()"
   />
 </template>
 
@@ -19,6 +19,7 @@ const props = defineProps<{
 
 // событие для родителя (GameField): если на юнит кликнули, его надо выбрать
 const emit = defineEmits<{ select: [] }>()
+const pushEmit = () => emit('select')
 
 // стили, которые зависят от данных юнита (координаты, размер, цвет), поэтому не в style
 // пересчитывается, когда юнит двигается
@@ -34,7 +35,7 @@ const style = computed(() => {
 })
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .unit {
   position: absolute;
   border-radius: 50%;

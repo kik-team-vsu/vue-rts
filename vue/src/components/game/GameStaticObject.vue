@@ -3,7 +3,7 @@
       class="static-object"
       :class="{ selected }"
       :style="style"
-      @mousedown.left.stop="emit('select')"/>
+      @mousedown.left.stop="() => pushEmit()"/>
 </template>
 
 <script setup lang="ts">
@@ -18,6 +18,7 @@ const props = defineProps<{
 
 // событие для родителя (GameField): если на объект кликнули, его надо выбрать
 const emit = defineEmits<{ select: [] }>()
+const pushEmit = () => emit('select')
 
 // стили, которые зависят от данных объекта (координаты, размер, цвет), поэтому тут, а не в <style>
 const style = computed(() => {
@@ -34,7 +35,7 @@ const style = computed(() => {
 
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .static-object {
   position: absolute;
   border: 2px solid rgba(0, 0, 0, 1);
