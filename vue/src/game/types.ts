@@ -8,6 +8,7 @@ export interface ObjectType {
   width: number
   height: number
   color: string
+  image?: string //для текстур
 }
 
 export interface BuildingType extends ObjectType {
