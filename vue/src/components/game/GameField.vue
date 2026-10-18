@@ -12,7 +12,7 @@
       <div class="ground" :style="groundStyle" />
 
       <div class="objects-layer">
-        <GameObject
+        <GameStaticObject
             v-for="o in objects"
             :key="o.id"
             :object="o"
@@ -28,10 +28,10 @@
           class="path-line"
           :style="order.pathStyle" />
 
-      <GameObject
+      <GameUnit
           v-for="u in units"
           :key="u.id"
-          :object="u"
+          :unit="u"
           :type="UNIT_TYPES[u.type]"
           :selected="selectedIds.includes(u.id)"
           @select="select(u.id)"/>
@@ -54,7 +54,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useStore } from 'vuex'
-import GameObject from './GameObject.vue'
+import GameStaticObject from './GameStaticObject.vue'
+import GameUnit from './GameUnit.vue'
 import { CAMERA, MAP, OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
 import { clampToMap, screenToWorld, worldToScreen } from '@/game/coords'
 import type { Point, StaticObject, Unit } from '@/game/types'

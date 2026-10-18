@@ -17,6 +17,9 @@ export const screenToWorld = (point: Point): Point => ({
   y: (2 * point.y - point.x) / (2 * ISO_SCALE),
 })
 
+// порядок отрисовки по точке на экране
+export const depthZIndex = (screenPoint: Point): number => Math.round(screenPoint.y) + MAP.width + MAP.height
+
 // ближайшая точка внутри карты (в мировых координатах)
 export const clampToMap = (point: Point): Point => ({
   x: Math.max(-MAP.width / 2, Math.min(MAP.width / 2, point.x)),

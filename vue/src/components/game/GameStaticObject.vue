@@ -1,56 +1,48 @@
 <template>
   <div
-      class="game-object"
-      :class="{ selected, walking, box: faces, figure: !faces }"
+      class="game-static-object"
+      :class="{ selected }"
       :style="style"
       @mousedown.left.stop="() => pushEmit()">
     <!-- здание или дерево: две ближние к камере стены и верх, затем скаты крыши и ветки, если они есть у типа -->
-    <template v-if="faces">
-      <div class="face wall" :style="faces.leftWall" />
-      <div class="face wall dark" :style="faces.rightWall" />
-      <div class="face top" :style="faces.top" />
-      <div
-          v-for="(tooth, index) in battlements"
-          :key="'tooth' + index"
-          class="face wall"
-          :class="{ dark: tooth.dark }"
-          :style="tooth.style" />
-      <div
-          v-for="(part, index) in roofParts"
-          :key="'roof' + index"
-          :class="part.class"
-          :style="part.style" />
-      <div
-          v-for="(branch, index) in branches"
-          :key="'branch' + index"
-          class="branch"
-          :style="branch" />
-    </template>
-    <template v-else>
-      <div class="shadow" />
-      <div class="leg left" />
-      <div class="leg right" />
-      <div class="body" :style="{ backgroundColor: type.color }" />
-      <div class="arm left" />
-      <div class="arm right" />
-      <div class="head" :style="{ backgroundColor: type.color }" />
-    </template>
-    <div v-if="hpRatio !== null" class="hp-bar" :style="hpBarStyle">
-      <div class="hp-fill" :style="hpFillStyle" />
-    </div>
+    <div class="face wall" :style="faces.leftWall" />
+    <div class="face wall dark" :style="faces.rightWall" />
+    <div class="face top" :style="faces.top" />
+    <div
+        v-for="(tooth, index) in battlements"
+        :key="'tooth' + index"
+        class="face wall"
+        :class="{ dark: tooth.dark }"
+        :style="tooth.style" />
+    <div
+        v-for="(part, index) in roofParts"
+        :key="'roof' + index"
+        :class="part.class"
+        :style="part.style" />
+    <div
+        v-for="(branch, index) in branches"
+        :key="'branch' + index"
+        class="branch"
+        :style="branch" />
+    <HpBar
+        v-if="object.hp !== undefined && maxHp !== null"
+        :hp="object.hp"
+        :max-hp="maxHp"
+        :group="object.group"
+        :offset="(type.wallHeight ?? 0) + (type.roofHeight ?? 0)" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { GROUP_COLORS, MAP } from '@/game/config'
-import { ISO_SCALE, worldToScreen } from '@/game/coords'
-import type { GameObject, ObjectType, Point } from '@/game/types'
+import HpBar from './HpBar.vue'
+import { depthZIndex, ISO_SCALE, worldToScreen } from '@/game/coords'
+import type { BuildingType, ObjectType, Point, StaticObject } from '@/game/types'
 
-// общий компонент для статичных объектов и юнитоd
+// статичный объект на карте (здание, дерево): объёмная коробка с точкой привязки в центре основания
 const props = defineProps<{
-  object: GameObject
-  type: ObjectType
+  object: StaticObject
+  type: ObjectType | BuildingType
   selected: boolean
 }>()
 
@@ -58,64 +50,21 @@ const props = defineProps<{
 const emit = defineEmits<{ select: [] }>()
 const pushEmit = () => emit('select')
 
-// юнит идёт, пока у него есть цель: тогда включается анимация рук и ног
-const walking = computed(() => 'target' in props.object && props.object.target !== null)
-
-const hp = computed(() => (props.object as { hp?: number }).hp)
-const maxHp = computed(() => (props.type as { maxHp?: number }).maxHp)
-
-const hpRatio = computed(() => {
-  if (hp.value === undefined || maxHp.value === undefined) {
-    return null
-  }
-  return Math.max(0, Math.min(1, hp.value / maxHp.value))
-})
-
-const hpBarStyle = computed(() => {
-  const { wallHeight = 0, roofHeight = 0 } = props.type
-  return {
-    top: -(wallHeight + roofHeight) - 14 + 'px',
-    borderColor: GROUP_COLORS[props.object.group] ?? '#000',
-  }
-})
-
-const hpFillStyle = computed(() => {
-  const ratio = hpRatio.value ?? 0
-  let color = '#ef4444'
-  if (ratio > 0.6) {
-    color = '#22c55e'
-  }
-  else if (ratio > 0.3) {
-    color = '#eab308'
-  }
-  return { width: ratio * 100 + '%', backgroundColor: color }
-})
+// жизни есть только у зданий
+const maxHp = computed(() => ('maxHp' in props.type ? props.type.maxHp : null))
 
 const style = computed(() => {
   const point = worldToScreen(props.object.position)
-  const zIndex = Math.round(point.y) + MAP.width + MAP.height
-
-  if (props.type.wallHeight) {
-    return {
-      left: point.x + 'px',
-      top: point.y + 'px',
-      zIndex,
-    }
-  }
   return {
-    left: point.x - props.type.width / 2 + 'px',
-    top: point.y - props.type.height + 'px',
-    width: props.type.width + 'px',
-    height: props.type.height + 'px',
-    zIndex,
+    left: point.x + 'px',
+    top: point.y + 'px',
+    zIndex: depthZIndex(point),
   }
 })
 
 const faces = computed(() => {
-  const { width, height, color, wallHeight } = props.type
-  if (!wallHeight) {
-    return null
-  }
+  const { width, height, color } = props.type
+  const wallHeight = props.type.wallHeight ?? 0
   const left = worldToScreen({ x: -width / 2, y: height / 2 })
   const front = worldToScreen({ x: width / 2, y: height / 2 })
   // matrix наклоняет стену вдоль стороны основания: по горизонтали как у земли, вертикаль остаётся вертикалью
@@ -271,154 +220,11 @@ const branches = computed(() => {
 </script>
 
 <style scoped lang="scss">
-.game-object {
+.game-static-object {
   position: absolute;
-  border: 2px solid rgba(0, 0, 0, 1);
-  cursor: pointer;
-}
-
-.selected {
-  border-color: #fff;
-}
-
-.box {
   width: 0;
   height: 0;
-  border: none;
-}
-
-.figure {
-  border: none;
-}
-
-.hp-bar {
-  position: absolute;
-  left: 50%;
-  width: 36px;
-  height: 6px;
-  box-sizing: border-box;
-  border: 2px solid #000;
-  background: rgba(0, 0, 0, 0.6);
-  transform: translateX(-50%);
-}
-
-.hp-fill {
-  height: 100%;
-}
-
-.shadow {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 100%;
-  aspect-ratio: 2 / 1;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.3);
-  transform: translateY(50%);
-}
-
-.leg {
-  position: absolute;
-  bottom: 0;
-  width: 4px;
-  height: 32%;
-  border-radius: 2px;
-  background: #000;
-  transform-origin: top center;
-
-  &.left {
-    left: 25%;
-    --step-a: 25deg;
-    --step-b: -25deg;
-  }
-
-  &.right {
-    right: 25%;
-    --step-a: -25deg;
-    --step-b: 25deg;
-  }
-
-  .selected > & {
-    background: #fff;
-  }
-}
-
-// руки юнитлов = палки от плеч
-.arm {
-  position: absolute;
-  top: 34%;
-  width: 4px;
-  height: 34%;
-  border-radius: 2px;
-  background: #000;
-  transform-origin: top center;
-
-  // руки машут
-  &.left {
-    left: 0;
-    transform: rotate(25deg);
-    --step-a: 5deg;
-    --step-b: 50deg;
-  }
-
-  &.right {
-    right: 0;
-    transform: rotate(-25deg);
-    --step-a: -50deg;
-    --step-b: -5deg;
-  }
-
-  .selected > & {
-    background: #fff;
-  }
-}
-
-// ходьба из двух кадров
-.walking > .leg,
-.walking > .arm {
-  animation: walk 0.4s steps(1) infinite;
-}
-
-@keyframes walk {
-  0% {
-    transform: rotate(var(--step-a));
-  }
-
-  50% {
-    transform: rotate(var(--step-b));
-  }
-}
-
-.body,
-.head {
-  position: absolute;
-  box-sizing: border-box;
-  border: 2px solid rgba(0, 0, 0, 1);
-  border-radius: 50%;
-  background-image: radial-gradient(
-    circle at 35% 28%,
-    rgba(255, 255, 255, 0.6) 0%,
-    rgba(255, 255, 255, 0) 40%,
-    rgba(0, 0, 0, 0.4) 100%
-  );
-
-  .selected > & {
-    border-color: #fff;
-  }
-}
-
-.body {
-  left: 0;
-  top: 26%;
-  width: 100%;
-  height: 50%;
-}
-
-.head {
-  left: 22%;
-  top: 0;
-  width: 56%;
-  aspect-ratio: 1;
+  cursor: pointer;
 }
 
 .face {
