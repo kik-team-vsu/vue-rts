@@ -46,5 +46,10 @@ const branches = computed(() => {
   margin-top: -2px;
   border-radius: 2px;
   transform-origin: 0 50%;
+
+  // для выделения веток
+  .selected > & {
+    box-shadow: 0 0 0 2px #fff;
+  }
 }
 </style>
