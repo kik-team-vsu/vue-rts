@@ -35,12 +35,15 @@
       <div class="arm right" />
       <div class="head" :style="{ backgroundColor: type.color }" />
     </template>
+    <div v-if="hpRatio !== null" class="hp-bar" :style="hpBarStyle">
+      <div class="hp-fill" :style="hpFillStyle" />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { MAP } from '@/game/config'
+import { GROUP_COLORS, MAP } from '@/game/config'
 import { ISO_SCALE, worldToScreen } from '@/game/coords'
 import type { GameObject, ObjectType, Point } from '@/game/types'
 
@@ -57,6 +60,36 @@ const pushEmit = () => emit('select')
 
 // юнит идёт, пока у него есть цель: тогда включается анимация рук и ног
 const walking = computed(() => 'target' in props.object && props.object.target !== null)
+
+const hp = computed(() => (props.object as { hp?: number }).hp)
+const maxHp = computed(() => (props.type as { maxHp?: number }).maxHp)
+
+const hpRatio = computed(() => {
+  if (hp.value === undefined || maxHp.value === undefined) {
+    return null
+  }
+  return Math.max(0, Math.min(1, hp.value / maxHp.value))
+})
+
+const hpBarStyle = computed(() => {
+  const { wallHeight = 0, roofHeight = 0 } = props.type
+  return {
+    top: -(wallHeight + roofHeight) - 14 + 'px',
+    borderColor: GROUP_COLORS[props.object.group] ?? '#000',
+  }
+})
+
+const hpFillStyle = computed(() => {
+  const ratio = hpRatio.value ?? 0
+  let color = '#ef4444'
+  if (ratio > 0.6) {
+    color = '#22c55e'
+  }
+  else if (ratio > 0.3) {
+    color = '#eab308'
+  }
+  return { width: ratio * 100 + '%', backgroundColor: color }
+})
 
 const style = computed(() => {
   const point = worldToScreen(props.object.position)
@@ -256,6 +289,21 @@ const branches = computed(() => {
 
 .figure {
   border: none;
+}
+
+.hp-bar {
+  position: absolute;
+  left: 50%;
+  width: 36px;
+  height: 6px;
+  box-sizing: border-box;
+  border: 2px solid #000;
+  background: rgba(0, 0, 0, 0.6);
+  transform: translateX(-50%);
+}
+
+.hp-fill {
+  height: 100%;
 }
 
 .shadow {
