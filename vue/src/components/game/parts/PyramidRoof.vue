@@ -3,7 +3,6 @@
       v-for="(part, index) in parts"
       :key="'roof' + index"
       :class="part.class"
-      class=""
       :style="part.style" />
 </template>
 

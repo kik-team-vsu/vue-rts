@@ -16,7 +16,8 @@
         :hp="object.hp"
         :max-hp="maxHp"
         :group="object.group"
-        :offset="(type.wallHeight ?? 0) + (type.roofHeight ?? 0)" />
+        :offset="hpBarOffset"
+        :width="hpBarWidth" />
   </div>
 </template>
 
@@ -42,6 +43,21 @@ const pushEmit = () => emit('select')
 
 // жизни есть только у зданий
 const maxHp = computed(() => ('maxHp' in props.type ? props.type.maxHp : null))
+
+// ширина полоски жизней на одну клетку размера здания: чем больше здание, тем шире полоска
+const HP_BAR_PX_PER_CELL = 30
+
+const hpBarWidth = computed(() => ('size' in props.type ? props.type.size * HP_BAR_PX_PER_CELL : undefined))
+
+// высота самой верхней точки объекта над точкой привязки, чтобы полоска жизней не налезала на объект
+const hpBarOffset = computed(() => {
+  const { width, height, wallHeight = 0, roofHeight = 0, roofType } = props.type
+  const backCorner = -worldToScreen({ x: -width / 2, y: -height / 2 }).y
+  if (roofType === 'battlements') {
+    return wallHeight + backCorner + roofHeight
+  }
+  return wallHeight + Math.max(backCorner, roofHeight)
+})
 
 const style = computed(() => {
   const point = worldToScreen(props.object.position)

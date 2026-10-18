@@ -10,17 +10,20 @@ import { GROUP_COLORS } from '@/game/config'
 
 // полоска жизней над объектом, рамка - цвет группы
 // offset - на сколько пикселей объект поднимается над точкой привязки (стены + крыша у зданий)
+// width - ширина полоски в пикселях
 const props = withDefaults(defineProps<{
   hp: number
   maxHp: number
   group: number
   offset?: number
-}>(), { offset: 0 })
+  width?: number
+}>(), { offset: 0, width: 36 })
 
 const ratio = computed(() => Math.max(0, Math.min(1, props.hp / props.maxHp)))
 
 const barStyle = computed(() => ({
   top: -props.offset - 14 + 'px',
+  width: props.width + 'px',
   borderColor: GROUP_COLORS[props.group] ?? '#000',
 }))
 
@@ -40,7 +43,6 @@ const fillStyle = computed(() => {
 .hp-bar {
   position: absolute;
   left: 50%;
-  width: 36px;
   height: 6px;
   box-sizing: border-box;
   border: 2px solid #000;
