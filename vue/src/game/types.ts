@@ -8,6 +8,12 @@ export interface ObjectType {
   width: number
   height: number
   color: string
+  wallHeight?: number
+  roofHeight?: number
+  roofColor?: string
+  roofType?: 'pyramid' | 'battlements'
+  // цвет веток (если применим)
+  branchColor?: string
 }
 
 export interface UnitType extends ObjectType {

@@ -9,8 +9,13 @@
         <div>{{ unitAction }}</div>
       </template>
     </template>
+    <template v-else-if="selectedUnits.length > 1">
+      <div class="name">Выбрано юнитов: {{ selectedUnits.length }}</div>
+      <div>ПКМ — отправить группу</div>
+    </template>
     <template v-else>
       <div>ЛКМ — выбрать</div>
+      <div>ЛКМ с протяжкой — выбрать юнитов рамкой</div>
       <div>ПКМ — идти</div>
       <div>Курсор к краю экрана — камера</div>
       <div>Зажать колёсико — двигать камеру</div>
@@ -26,6 +31,7 @@ import type { StaticObject, Unit } from '@/game/types'
 
 const store = useStore()
 const selected = computed<StaticObject | Unit | null>(() => store.getters['game/getSelected'])
+const selectedUnits = computed<Unit[]>(() => store.getters['game/getSelectedUnits'])
 
 const unit = computed(() => {
   const selectedObject = selected.value
