@@ -4,26 +4,13 @@
       :class="{ selected }"
       :style="style"
       @mousedown.left.stop="() => pushEmit()">
-    <!-- здание или дерево: две ближние к камере стены и верх, затем скаты крыши и ветки, если они есть у типа -->
+    <!-- здание или дерево: две ближние к камере стены и верх, затем крыша или ветки, если они есть у типа -->
     <div class="face wall" :style="faces.leftWall" />
     <div class="face wall dark" :style="faces.rightWall" />
     <div class="face top" :style="faces.top" />
-    <div
-        v-for="(tooth, index) in battlements"
-        :key="'tooth' + index"
-        class="face wall"
-        :class="{ dark: tooth.dark }"
-        :style="tooth.style" />
-    <div
-        v-for="(part, index) in roofParts"
-        :key="'roof' + index"
-        :class="part.class"
-        :style="part.style" />
-    <div
-        v-for="(branch, index) in branches"
-        :key="'branch' + index"
-        class="branch"
-        :style="branch" />
+    <Battlements v-if="type.roofHeight && type.roofType === 'battlements'" :type="type" />
+    <PyramidRoof v-else-if="type.roofHeight" :type="type" />
+    <TreeBranches v-if="type.branchColor" :type="type" />
     <HpBar
         v-if="object.hp !== undefined && maxHp !== null"
         :hp="object.hp"
@@ -36,8 +23,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import HpBar from './HpBar.vue'
+import Battlements from './parts/Battlements.vue'
+import PyramidRoof from './parts/PyramidRoof.vue'
+import TreeBranches from './parts/TreeBranches.vue'
 import { depthZIndex, ISO_SCALE, worldToScreen } from '@/game/coords'
-import type { BuildingType, ObjectType, Point, StaticObject } from '@/game/types'
+import type { BuildingType, ObjectType, StaticObject } from '@/game/types'
 
 // статичный объект на карте (здание, дерево): объёмная коробка с точкой привязки в центре основания
 const props = defineProps<{
@@ -97,129 +87,11 @@ const faces = computed(() => {
     },
   }
 })
-
-const polygon = (points: Point[], color: string, brightness: number) => {
-  const left = Math.min(...points.map((p) => p.x))
-  const top = Math.min(...points.map((p) => p.y))
-  return {
-    left: left + 'px',
-    top: top + 'px',
-    width: Math.max(...points.map((p) => p.x)) - left + 'px',
-    height: Math.max(...points.map((p) => p.y)) - top + 'px',
-    backgroundColor: color,
-    filter: `brightness(${brightness})`,
-    clipPath: `polygon(${points.map((p) => `${p.x - left}px ${p.y - top}px`).join(', ')})`,
-  }
-}
-
-// ребро крыши
-const edge = (from: Point, to: Point) => {
-  const dx = to.x - from.x
-  const dy = to.y - from.y
-  return {
-    left: from.x + 'px',
-    top: from.y + 'px',
-    width: Math.hypot(dx, dy) + 'px',
-    transform: `rotate(${Math.atan2(dy, dx)}rad)`,
-  }
-}
-
-// крыша-пирамида
-const roofParts = computed(() => {
-  const { width, height, color, wallHeight, roofHeight, roofColor, roofType } = props.type
-  if (!wallHeight || !roofHeight || roofType === 'battlements') {
-    return []
-  }
-  const corner = (x: number, y: number): Point => {
-    const point = worldToScreen({ x, y })
-    return { x: point.x, y: point.y - wallHeight }
-  }
-  const back = corner(-width / 2, -height / 2)
-  const left = corner(-width / 2, height / 2)
-  const right = corner(width / 2, -height / 2)
-  const front = corner(width / 2, height / 2)
-  const peak = { x: 0, y: -wallHeight - roofHeight }
-  const fill = roofColor ?? color
-  const slopes = (...styles: object[]) => styles.map((style) => ({ class: 'slope', style }))
-  const edges = (...styles: object[]) => styles.map((style) => ({ class: 'edge', style }))
-  return [
-    ...slopes(polygon([back, left, peak], fill, 0.8), polygon([back, right, peak], fill, 0.6)),
-    ...edges(edge(back, left), edge(back, right), edge(back, peak)),
-    ...slopes(polygon([left, front, peak], fill, 1), polygon([front, right, peak], fill, 0.7)),
-    ...edges(edge(left, peak), edge(front, peak), edge(right, peak)),
-  ]
-})
-
-// примерный размер зубца и промежутка между зубцами в единицах мира
-const TOOTH_SIZE = 20
-
-// зубцы по краям стен (крыша замка)
-const battlements = computed(() => {
-  const { width, height, color, wallHeight, roofHeight, roofColor, roofType } = props.type
-  if (!wallHeight || !roofHeight || roofType !== 'battlements') {
-    return []
-  }
-  const fill = roofColor ?? color
-  const row = (alongX: boolean, fixed: number) => {
-    const length = alongX ? width : height
-    const count = Math.max(2, Math.round((length / TOOTH_SIZE + 1) / 2))
-    const size = length / (2 * count - 1)
-    return Array.from({ length: count }, (_, index) => {
-      const offset = index * 2 * size
-      // как и стены в faces: вдоль x идём от левого края вправо, вдоль y - от ближнего края вдаль
-      const start = alongX
-        ? worldToScreen({ x: -width / 2 + offset, y: fixed })
-        : worldToScreen({ x: fixed, y: height / 2 - offset })
-      return {
-        dark: !alongX,
-        style: {
-          left: start.x + 'px',
-          top: start.y - wallHeight - roofHeight + 'px',
-          width: size + 'px',
-          height: roofHeight + 'px',
-          backgroundColor: fill,
-          transform: `matrix(${ISO_SCALE}, ${((alongX ? 1 : -1) * ISO_SCALE) / 2}, 0, 1, 0, 0)`,
-        },
-      }
-    })
-  }
-  return [
-    ...row(true, -height / 2),
-    ...row(false, -width / 2),
-    ...row(true, height / 2),
-    ...row(false, width / 2),
-  ]
-})
-
-const BRANCH_PAIRS = 4
-// угол наклона веток вниз от горизонтали
-const BRANCH_ANGLE = 25
-
-// ветки ёлки: пары палок от оси ствола в обе стороны, чем выше, тем короче
-const branches = computed(() => {
-  const { wallHeight, branchColor } = props.type
-  if (!wallHeight || !branchColor) {
-    return []
-  }
-  const result = []
-  for (let i = 0; i < BRANCH_PAIRS; i++) {
-    const y = wallHeight * (0.3 + i * 0.2)
-    const length = wallHeight * 0.35 * (1 - i * 0.2)
-    for (const angle of [BRANCH_ANGLE, 180 - BRANCH_ANGLE]) {
-      result.push({
-        top: -y + 'px',
-        width: length + 'px',
-        backgroundColor: branchColor,
-        transform: `rotate(${angle}deg)`,
-      })
-    }
-  }
-  return result
-})
-
 </script>
 
 <style scoped lang="scss">
+@use '@/assets/iso-faces';
+
 .game-static-object {
   position: absolute;
   width: 0;
@@ -227,53 +99,8 @@ const branches = computed(() => {
   cursor: pointer;
 }
 
-.face {
-  position: absolute;
-  box-sizing: border-box;
-  border: 2px solid rgba(0, 0, 0, 1);
-
-  .selected > & {
-    border-color: #fff;
-  }
-}
-
-.wall {
-  transform-origin: 0 0;
-  background-image: linear-gradient(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.25));
-
-  &.dark {
-    background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45));
-  }
-}
-
 // та же изометрия для ромбовидности
 .top {
   transform: scaleY(0.5) rotate(45deg);
-}
-
-// скат крыши
-.slope {
-  position: absolute;
-}
-
-.edge {
-  position: absolute;
-  height: 0;
-  margin-top: -1px;
-  border-top: 2px solid rgba(0, 0, 0, 1);
-  transform-origin: 0 50%;
-
-  .selected > & {
-    border-color: #fff;
-  }
-}
-
-.branch {
-  position: absolute;
-  left: 0;
-  height: 4px;
-  margin-top: -2px;
-  border-radius: 2px;
-  transform-origin: 0 50%;
 }
 </style>
