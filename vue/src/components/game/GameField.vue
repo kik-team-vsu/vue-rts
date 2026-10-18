@@ -95,7 +95,7 @@ const groundStyle = {
   top: -MAP.height / 2 + 'px',
   width: MAP.width + 'px',
   height: MAP.height + 'px',
-  backgroundSize: MAP.cell + 'px ' + MAP.cell + 'px',
+  backgroundSize: `${MAP.cell}px ${MAP.cell}px, ${MAP.cell}px ${MAP.cell}px, 256px 256px`,
 }
 
 const orders = computed(() => {
@@ -339,8 +339,9 @@ onUnmounted(() => {
   transform: scaleY(0.5) rotate(45deg);
   background-color: #4a7c3a;
   background-image:
-    linear-gradient(to right, rgba(0, 0, 0, 0.2) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.2) 1px, transparent 1px);
+      linear-gradient(to right, rgba(0, 0, 0, 0.2) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.2) 1px, transparent 1px),
+      url('../../assets/grass.svg');
 }
 
 .objects-layer {
