@@ -20,6 +20,11 @@ export const UNIT_TYPES: Record<string, UnitType> = {
   warrior: { name: 'Воин', width: 32, height: 52, color: '#ff0000', speedPxPerSecond: 150, maxHp: 100, strength: 15, attackSpeed: 1.5 },
 }
 
+export const GROUP_COLORS: Record<number, string> = {
+  1: '#2563eb',
+  2: '#dc2626',
+}
+
 // group: 0 - нейтральные, 1 и 2 - разные группы; hp здания равен maxHp его типа
 export const START_OBJECTS: StaticObject[] = [
   { id: 1, type: 'house', group: 1, hp: 200, position: { x: -200, y: -150 } },
