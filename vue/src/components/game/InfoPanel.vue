@@ -4,9 +4,17 @@
       <div class="name">{{ typeName }}</div>
       <div>ID: {{ selected.id }}</div>
       <div>Координаты: {{ Math.round(selected.position.x) }}, {{ Math.round(selected.position.y) }}</div>
-      <template v-if="unit">
+      <div>{{ groupName }}</div>
+      <template v-if="unit && unitType">
+        <div>Жизни: {{ unit.hp }} / {{ unitType.maxHp }}</div>
+        <div>Сила: {{ unitType.strength }}</div>
+        <div>Скорость атаки: {{ unitType.attackSpeed }}</div>
         <div>Скорость: {{ unitSpeed }}</div>
         <div>{{ unitAction }}</div>
+      </template>
+      <template v-else-if="buildingType">
+        <div>Жизни: {{ selected.hp }} / {{ buildingType.maxHp }}</div>
+        <div>Размер: {{ buildingType.size }}×{{ buildingType.size }}</div>
       </template>
     </template>
     <template v-else-if="selectedUnits.length > 1">
@@ -54,6 +62,32 @@ const typeName = computed(() => {
     return OBJECT_TYPES[selected.value.type].name
   }
   return ''
+})
+
+const unitType = computed(() => {
+  if (unit.value) {
+    return UNIT_TYPES[unit.value.type]
+  }
+  return null
+})
+
+// характеристики зданий. у дерева и других объектов без maxHp будет null
+const buildingType = computed(() => {
+  if (unit.value || !selected.value) {
+    return null
+  }
+  const type = OBJECT_TYPES[selected.value.type]
+  if ('maxHp' in type) {
+    return type
+  }
+  return null
+})
+
+const groupName = computed(() => {
+  if (selected.value && selected.value.group > 0) {
+    return 'Группа: ' + selected.value.group
+  }
+  return 'Нейтральный'
 })
 
 const unitSpeed = computed(() => {
