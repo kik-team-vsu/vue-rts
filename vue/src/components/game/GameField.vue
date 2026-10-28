@@ -35,7 +35,7 @@
           :unit="u"
           :type="UNIT_TYPES[u.type]"
           :selected="selectedIds.includes(u.id)"
-          @select="select(u.id)"/>
+          @select="(additive) => selectUnit(u.id, additive)"/>
 
       <div
           v-for="order in orders"
@@ -87,6 +87,8 @@ const mouse = { x: 0, y: 0, inside: false }
 
 // выделение рамкой юнитов
 let selectStart: Point | null = null
+// рамку начали с зажатым shift: найденные юниты добавляются к уже выбранным
+let selectAdditive = false
 const selectionBox = ref<Box | null>(null)
 
 const worldStyle = computed(() => ({
@@ -174,6 +176,15 @@ const select = (id: number | null) => {
   store.dispatch('game/select', id)
 }
 
+const selectUnit = (id: number, additive: boolean) => {
+  if (additive) {
+    store.dispatch('game/toggleSelect', id)
+  }
+  else {
+    select(id)
+  }
+}
+
 const getSelectionBox = (start: Point): Box => ({
   left: Math.min(start.x, mouse.x),
   top: Math.min(start.y, mouse.y),
@@ -188,6 +199,7 @@ const isBigEnough = (box: Box) => box.width > MIN_SELECTION_PX || box.height > M
 const startSelect = (e: MouseEvent) => {
   saveMouse(e)
   selectStart = { x: mouse.x, y: mouse.y }
+  selectAdditive = e.shiftKey
 }
 
 // раз в кадр обновляем рамку на экране
@@ -208,7 +220,10 @@ const finishSelect = () => {
   selectionBox.value = null
 
   if (!isBigEnough(box)) {
-    select(null)
+    // клик с shift по пустому месту не сбрасывает выбор
+    if (!selectAdditive) {
+      select(null)
+    }
     return
   }
   const width = screenView.value.clientWidth
@@ -221,7 +236,7 @@ const finishSelect = () => {
       return x >= box.left && x <= box.left + box.width && y >= box.top && y <= box.top + box.height
     })
     .map((u) => u.id)
-  store.dispatch('game/selectMany', ids)
+  store.dispatch(selectAdditive ? 'game/addToSelection' : 'game/selectMany', ids)
 }
 
 const startDrag = (e: MouseEvent) => {
@@ -331,7 +346,7 @@ onUnmounted(() => {
 }
 
 .screen-view--paused :deep(*) {
-  // на паузе замирают и анимации юнитов
+  // на паузе анимация стоит
   animation-play-state: paused !important;
 }
 

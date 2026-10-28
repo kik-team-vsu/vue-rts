@@ -6,6 +6,7 @@
           v-for="s in scenarios"
           :key="s.id"
           class="game-controls__button"
+          @mousedown.prevent
           @click="() => startScenario(s.id)">
         {{ s.name }}
       </button>
@@ -13,11 +14,11 @@
 
     <template v-else>
       <div class="game-controls__bar">
-        <button class="game-controls__button" @click="() => togglePause()">
+        <button v-if="!isGameOver" class="game-controls__button" @mousedown.prevent @click="() => togglePause()">
           {{ paused ? 'Продолжить' : 'Пауза' }}
         </button>
-        <button class="game-controls__button" @click="() => startScenario(scenarioId)">Перезапуск</button>
-        <button class="game-controls__button" @click="() => openMenu()">Меню</button>
+        <button class="game-controls__button" @mousedown.prevent @click="() => startScenario(scenarioId)">Перезапуск</button>
+        <button class="game-controls__button" @mousedown.prevent @click="() => openMenu()">Меню</button>
       </div>
 
       <div v-if="paused && !isGameOver" class="game-controls__banner">Пауза</div>
@@ -26,8 +27,8 @@
         <div>Игра окончена</div>
         <div v-if="winner">Победила группа {{ winner }}</div>
         <div v-else>Ничья: на карте никого не осталось</div>
-        <button class="game-controls__button" @click="() => startScenario(scenarioId)">Начать заново</button>
-        <button class="game-controls__button" @click="() => openMenu()">Меню</button>
+        <button class="game-controls__button" @mousedown.prevent @click="() => startScenario(scenarioId)">Начать заново</button>
+        <button class="game-controls__button" @mousedown.prevent @click="() => openMenu()">Меню</button>
       </div>
     </template>
   </div>
@@ -58,7 +59,7 @@ const openMenu = () => {
   store.dispatch('game/openMenu')
 }
 
-// пауза по клавише Space
+// пауза на пробел
 const onKeyDown = (e: KeyboardEvent) => {
   if (e.code === 'Space' && !e.repeat && started.value && !isGameOver.value) {
     e.preventDefault()

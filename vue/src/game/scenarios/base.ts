@@ -1,7 +1,7 @@
 import { START_OBJECTS, START_UNITS } from '@/game/config'
 import type { Scenario } from '@/game/types'
 
-// базовый сценарий: стартовая расстановка из config, без событий
+// базовый сценарий из config, без событий
 export const BASE: Scenario = {
   id: 'base',
   name: 'Базовый',

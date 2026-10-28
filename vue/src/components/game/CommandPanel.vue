@@ -8,6 +8,7 @@
         v-for="command in commands"
         :key="command.id"
         class="command-panel__button"
+        @mousedown.prevent
         @click="() => run(command)">
       {{ command.label }}
     </button>
@@ -20,15 +21,20 @@ import { useStore } from 'vuex'
 import { COMMANDS } from '@/game/config'
 import type { Command } from '@/game/types'
 
-// одна общая панель команд: набор кнопок зависит от того, что выбрано
+// одна панель команд, кнопки зависят от выбора
 const store = useStore()
-const selectedUnits = computed(() => store.getters['game/getSelectedUnits'])
+const isRunning = computed<boolean>(() => store.getters['game/isRunning'])
+const ownSelectedUnits = computed(() => store.getters['game/getOwnSelectedUnits'])
 
 const commands = computed<Command[]>(() => {
-  if (selectedUnits.value.length > 0) {
+  // в меню и после конца игры кнопок нет
+  if (!isRunning.value) {
+    return []
+  }
+  if (ownSelectedUnits.value.length > 0) {
     return [COMMANDS.destroy]
   }
-  // здание (спавн, задача 19) и пустой выбор (стройка, задача 20) добавятся сюда же
+  // здание (спавн, задача 19) и стройку (задача 20) потом добавим сюда
   return []
 })
 

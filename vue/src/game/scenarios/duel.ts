@@ -1,7 +1,7 @@
 import { makeUnit } from './helpers'
 import type { Scenario } from '@/game/types'
 
-// дуэль: два воина, через 2 секунды второй сам идёт к первому
+// дуэль: два воина, второй идёт к центру через 2 секунды
 export const DUEL: Scenario = {
   id: 'duel',
   name: 'Дуэль',
@@ -13,6 +13,6 @@ export const DUEL: Scenario = {
     makeUnit(3, 'warrior', 2, 200, 0),
   ],
   events: [
-    { at: 2, unitId: 3, target: { x: -100, y: 0 } },
+    { at: 2, unitId: 3, target: { x: 0, y: 0 } },
   ],
 }

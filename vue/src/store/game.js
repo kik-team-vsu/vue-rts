@@ -1,4 +1,4 @@
-import { START_OBJECTS, START_UNITS, UNIT_TYPES } from '@/game/config'
+import { PLAYER_GROUP, START_OBJECTS, START_UNITS, UNIT_TYPES } from '@/game/config'
 import { SCENARIOS } from '@/game/scenarios'
 import { clampToMap } from '@/game/coords'
 import { isBlocked } from '@/game/obstacles'
@@ -25,7 +25,7 @@ export default {
       objects: structuredClone(START_OBJECTS),
       units: structuredClone(START_UNITS),
       selectedIds: [],
-      started: false, // false - показано меню выбора сценария
+      started: false, // false - показываем меню
       paused: false,
       scenarioTime: 0,
       pendingEvents: [],
@@ -44,14 +44,18 @@ export default {
       return state.objects.find((o) => o.id === id) ?? state.units.find((u) => u.id === id) ?? null
     },
     getStarted: (state) => state.started,
+    // игра идёт, если сценарий выбран и игра не закончена
+    isRunning: (state, getters) => state.started && !getters.isGameOver,
+    // выбранные юниты игрока (чужими командовать нельзя)
+    getOwnSelectedUnits: (state) => state.units.filter((u) => state.selectedIds.includes(u.id) && u.group === PLAYER_GROUP),
     getPaused: (state) => state.paused,
     getScenarioId: (state) => state.scenarioId,
-    // группы (кроме нейтральной 0), у которых ещё остались юниты или здания
+    // группы у которых остались юниты или здания, группа 0 не считается
     getAliveGroups: (state) => {
       const groups = [...state.units, ...state.objects].map((o) => o.group).filter((group) => group > 0)
       return [...new Set(groups)]
     },
-    // игра закончена, когда на карте осталась ровно одна группа
+    // конец игры, когда осталась одна группа
     getWinner: (state, getters) => (getters.getAliveGroups.length === 1 ? getters.getAliveGroups[0] : null),
     isGameOver: (state, getters) => state.started && getters.getAliveGroups.length <= 1,
     getSelectedUnits: (state) => state.units.filter((u) => state.selectedIds.includes(u.id)),
@@ -66,7 +70,7 @@ export default {
         unit.target = target
       }
     },
-    // убираем с карты объект с этим id (юнит или здание) и снимаем с него выбор
+    // удаляем объект по id и убираем из выбора
     [MUTATIONS.REMOVE_OBJECT]: (state, id) => {
       state.units = state.units.filter((u) => u.id !== id)
       state.objects = state.objects.filter((o) => o.id !== id)
@@ -88,8 +92,9 @@ export default {
     [MUTATIONS.OPEN_MENU]: (state) => {
       state.started = false
       state.paused = false
+      state.selectedIds = []
     },
-    // время сценария идёт вперёд, наступившие события выдают юнитам приказы
+    // двигаем время сценария и запускаем события
     [MUTATIONS.RUN_SCENARIO_EVENTS]: (state, secondsPassed) => {
       state.scenarioTime += secondsPassed
       const due = state.pendingEvents.filter((e) => e.at <= state.scenarioTime)
@@ -142,12 +147,37 @@ export default {
   },
   actions: {
     select: (store, id) => {
+      if (!store.getters.isRunning) {
+        return
+      }
       store.commit(MUTATIONS.SET_SELECTED_IDS, id === null ? [] : [id])
     },
     selectMany: (store, ids) => {
+      if (!store.getters.isRunning) {
+        return
+      }
       store.commit(MUTATIONS.SET_SELECTED_IDS, ids)
     },
+    // shift + клик: юнит добавляется к выбору или убирается из него
+    toggleSelect: (store, id) => {
+      if (!store.getters.isRunning) {
+        return
+      }
+      const ids = store.getters.getSelectedUnits.map((u) => u.id)
+      store.commit(MUTATIONS.SET_SELECTED_IDS, ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id])
+    },
+    // shift + рамка: новые юниты добавляются к уже выбранным
+    addToSelection: (store, ids) => {
+      if (!store.getters.isRunning) {
+        return
+      }
+      const selected = store.getters.getSelectedUnits.map((u) => u.id)
+      store.commit(MUTATIONS.SET_SELECTED_IDS, [...selected, ...ids.filter((id) => !selected.includes(id))])
+    },
     moveSelected: (store, point) => {
+      if (!store.getters.isRunning) {
+        return
+      }
       const units = store.getters.getSelectedUnits
       const columns = Math.ceil(Math.sqrt(units.length))
       const rows = Math.ceil(units.length / columns)
@@ -163,24 +193,30 @@ export default {
         })
       })
     },
-    // уничтожение объекта по id
+    // уничтожить объект по id
     destroyObject: (store, id) => {
       store.commit(MUTATIONS.REMOVE_OBJECT, id)
     },
-    // объект с hp <= 0 удаляется в том же кадре (вызывается из игрового цикла)
+    // удаляем объекты у которых hp <= 0
     removeDead: (store) => {
+      if (!store.getters.isRunning || store.state.paused) {
+        return
+      }
       const dead = [...store.state.units, ...store.state.objects].filter((o) => o.hp !== undefined && o.hp <= 0)
       dead.forEach((o) => store.dispatch('destroyObject', o.id))
     },
-    // самоуничтожение: каждый выбранный юнит уничтожается через destroyObject
+    // самоуничтожение выбранных юнитов игрока
     destroySelectedUnits: (store) => {
-      store.getters.getSelectedUnits.forEach((unit) => store.dispatch('destroyObject', unit.id))
+      if (!store.getters.isRunning) {
+        return
+      }
+      store.getters.getOwnSelectedUnits.forEach((unit) => store.dispatch('destroyObject', unit.id))
     },
-    // кнопка паузы: нажали - стоим, нажали ещё раз - идём дальше
+    // пауза: нажали - стоим, ещё раз - продолжаем
     togglePause: (store) => {
       store.commit(MUTATIONS.SET_PAUSED, !store.state.paused)
     },
-    // загрузка заготовленного сценария по id
+    // запустить сценарий по id
     loadScenario: (store, id) => {
       const scenario = SCENARIOS.find((s) => s.id === id)
       if (scenario) {
@@ -190,7 +226,7 @@ export default {
     openMenu: (store) => {
       store.commit(MUTATIONS.OPEN_MENU)
     },
-    // события сценария: время на паузе и в меню не идёт
+    // события сценария (на паузе и в меню не идут)
     runScenarioEvents: (store, secondsPassed) => {
       if (store.state.started && !store.state.paused && !store.getters.isGameOver) {
         store.commit(MUTATIONS.RUN_SCENARIO_EVENTS, secondsPassed)

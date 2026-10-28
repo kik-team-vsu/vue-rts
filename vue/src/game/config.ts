@@ -26,6 +26,9 @@ export const GROUP_COLORS: Record<number, string> = {
 }
 
 // group: 0 - нейтральные, 1 и 2 - разные группы; hp здания равен maxHp его типа
+// группа игрока, остальные группы - враги
+export const PLAYER_GROUP = 1
+
 export const START_OBJECTS: StaticObject[] = [
   { id: 1, type: 'house', group: 1, hp: 200, position: { x: -200, y: -150 } },
   { id: 2, type: 'house', group: 2, hp: 200, position: { x: 350, y: 250 } },
@@ -43,7 +46,7 @@ export const START_UNITS: Unit[] = [
   { id: 11, type: 'warrior', group: 2, hp: UNIT_TYPES.warrior.maxHp, position: { x: 100, y: 100 }, target: null },
 ]
 
-// команды панели: кнопка описана данными, action вызывается в store игры
+// кнопки панели, action вызывается из стора
 export const COMMANDS: Record<string, Command> = {
   destroy: { id: 'destroy', label: 'Самоуничтожение', action: 'game/destroySelectedUnits' },
 }

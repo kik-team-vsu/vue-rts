@@ -49,14 +49,14 @@ export interface Unit extends GameObject {
   target: Point | null // целевая точка при перемещении, null у стоящего объекта
 }
 
-// событие сценария: в момент at (секунды от старта) юнит получает приказ идти в точку
+// событие сценария: в момент at (секунды) юнит идёт в точку target
 export interface ScenarioEvent {
   at: number
   unitId: number
   target: Point
 }
 
-// заготовленный сценарий: стартовая расстановка + список событий со временем запуска
+// сценарий: расстановка на старте и события по времени
 export interface Scenario {
   id: string
   name: string
@@ -65,9 +65,9 @@ export interface Scenario {
   events: ScenarioEvent[]
 }
 
-// кнопка панели команд
+// кнопка в панели команд
 export interface Command {
   id: string
   label: string
-  action: string // имя action в сторе, например 'game/destroySelectedUnits'
+  action: string // название action в сторе
 }
