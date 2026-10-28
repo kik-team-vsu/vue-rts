@@ -3,7 +3,7 @@
       class="game-unit"
       :class="{ selected, walking }"
       :style="style"
-      @mousedown.left.stop="() => pushEmit()">
+      @mousedown.left.stop="(event) => pushEmit(event)">
     <div class="shadow" />
     <div class="leg left" />
     <div class="leg right" />
@@ -29,8 +29,9 @@ const props = defineProps<{
 }>()
 
 // событие для родителя (GameField): если на юнита кликнули, его надо выбрать
-const emit = defineEmits<{ select: [] }>()
-const pushEmit = () => emit('select')
+// с зажатым shift юнит добавляется к выбору или убирается из него
+const emit = defineEmits<{ select: [additive: boolean] }>()
+const pushEmit = (event: MouseEvent) => emit('select', event.shiftKey)
 
 // юнит идёт, пока у него есть цель: тогда включается анимация рук и ног
 const walking = computed(() => props.unit.target !== null)
