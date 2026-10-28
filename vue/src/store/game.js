@@ -90,6 +90,16 @@ export default {
     selectMany: (store, ids) => {
       store.commit(MUTATIONS.SET_SELECTED_IDS, ids)
     },
+    // shift + клик: юнит добавляется к выбору или убирается из него
+    toggleSelect: (store, id) => {
+      const ids = store.getters.getSelectedUnits.map((u) => u.id)
+      store.commit(MUTATIONS.SET_SELECTED_IDS, ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id])
+    },
+    // shift + рамка: новые юниты добавляются к уже выбранным
+    addToSelection: (store, ids) => {
+      const selected = store.getters.getSelectedUnits.map((u) => u.id)
+      store.commit(MUTATIONS.SET_SELECTED_IDS, [...selected, ...ids.filter((id) => !selected.includes(id))])
+    },
     moveSelected: (store, point) => {
       const units = store.getters.getSelectedUnits
       const columns = Math.ceil(Math.sqrt(units.length))
