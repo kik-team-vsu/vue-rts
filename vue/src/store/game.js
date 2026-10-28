@@ -1,4 +1,5 @@
 import { START_OBJECTS, START_UNITS, UNIT_TYPES } from '@/game/config'
+import { SCENARIOS } from '@/game/scenarios'
 import { clampToMap } from '@/game/coords'
 import { isBlocked } from '@/game/obstacles'
 
@@ -7,6 +8,10 @@ const MUTATIONS = {
   SET_UNIT_TARGET: 'SET_UNIT_TARGET',
   MOVE_UNITS: 'MOVE_UNITS',
   REMOVE_OBJECT: 'REMOVE_OBJECT',
+  SET_PAUSED: 'SET_PAUSED',
+  LOAD_SCENARIO: 'LOAD_SCENARIO',
+  OPEN_MENU: 'OPEN_MENU',
+  RUN_SCENARIO_EVENTS: 'RUN_SCENARIO_EVENTS',
 }
 
 const MIN_SLIDE = 0.01
@@ -20,6 +25,11 @@ export default {
       objects: structuredClone(START_OBJECTS),
       units: structuredClone(START_UNITS),
       selectedIds: [],
+      started: false, // false - показано меню выбора сценария
+      paused: false,
+      scenarioTime: 0,
+      pendingEvents: [],
+      scenarioId: SCENARIOS[0].id,
     }
   },
   getters: {
@@ -33,6 +43,17 @@ export default {
       const id = state.selectedIds[0]
       return state.objects.find((o) => o.id === id) ?? state.units.find((u) => u.id === id) ?? null
     },
+    getStarted: (state) => state.started,
+    getPaused: (state) => state.paused,
+    getScenarioId: (state) => state.scenarioId,
+    // группы (кроме нейтральной 0), у которых ещё остались юниты или здания
+    getAliveGroups: (state) => {
+      const groups = [...state.units, ...state.objects].map((o) => o.group).filter((group) => group > 0)
+      return [...new Set(groups)]
+    },
+    // игра закончена, когда на карте осталась ровно одна группа
+    getWinner: (state, getters) => (getters.getAliveGroups.length === 1 ? getters.getAliveGroups[0] : null),
+    isGameOver: (state, getters) => state.started && getters.getAliveGroups.length <= 1,
     getSelectedUnits: (state) => state.units.filter((u) => state.selectedIds.includes(u.id)),
   },
   mutations: {
@@ -50,6 +71,35 @@ export default {
       state.units = state.units.filter((u) => u.id !== id)
       state.objects = state.objects.filter((o) => o.id !== id)
       state.selectedIds = state.selectedIds.filter((selectedId) => selectedId !== id)
+    },
+    [MUTATIONS.SET_PAUSED]: (state, paused) => {
+      state.paused = paused
+    },
+    [MUTATIONS.LOAD_SCENARIO]: (state, scenario) => {
+      state.objects = structuredClone(scenario.objects)
+      state.units = structuredClone(scenario.units)
+      state.selectedIds = []
+      state.paused = false
+      state.started = true
+      state.scenarioTime = 0
+      state.pendingEvents = structuredClone(scenario.events)
+      state.scenarioId = scenario.id
+    },
+    [MUTATIONS.OPEN_MENU]: (state) => {
+      state.started = false
+      state.paused = false
+    },
+    // время сценария идёт вперёд, наступившие события выдают юнитам приказы
+    [MUTATIONS.RUN_SCENARIO_EVENTS]: (state, secondsPassed) => {
+      state.scenarioTime += secondsPassed
+      const due = state.pendingEvents.filter((e) => e.at <= state.scenarioTime)
+      due.forEach((e) => {
+        const unit = state.units.find((u) => u.id === e.unitId)
+        if (unit) {
+          unit.target = e.target
+        }
+      })
+      state.pendingEvents = state.pendingEvents.filter((e) => e.at > state.scenarioTime)
     },
     [MUTATIONS.MOVE_UNITS]: (state, secondsPassed) => {
       for (const u of state.units) {
@@ -126,7 +176,30 @@ export default {
     destroySelectedUnits: (store) => {
       store.getters.getSelectedUnits.forEach((unit) => store.dispatch('destroyObject', unit.id))
     },
+    // кнопка паузы: нажали - стоим, нажали ещё раз - идём дальше
+    togglePause: (store) => {
+      store.commit(MUTATIONS.SET_PAUSED, !store.state.paused)
+    },
+    // загрузка заготовленного сценария по id
+    loadScenario: (store, id) => {
+      const scenario = SCENARIOS.find((s) => s.id === id)
+      if (scenario) {
+        store.commit(MUTATIONS.LOAD_SCENARIO, scenario)
+      }
+    },
+    openMenu: (store) => {
+      store.commit(MUTATIONS.OPEN_MENU)
+    },
+    // события сценария: время на паузе и в меню не идёт
+    runScenarioEvents: (store, secondsPassed) => {
+      if (store.state.started && !store.state.paused && !store.getters.isGameOver) {
+        store.commit(MUTATIONS.RUN_SCENARIO_EVENTS, secondsPassed)
+      }
+    },
     moveUnits: (store, secondsPassed) => {
+      if (!store.state.started || store.state.paused || store.getters.isGameOver) {
+        return
+      }
       if (store.state.units.some((u) => u.target)) {
         store.commit(MUTATIONS.MOVE_UNITS, secondsPassed)
       }

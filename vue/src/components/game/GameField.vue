@@ -2,6 +2,7 @@
   <div
       ref="screenView"
       class="screen-view"
+      :class="{ 'screen-view--paused': paused }"
       @mousedown.left="(event) => startSelect(event)"
       @mousedown.middle.prevent="(event) => startDrag(event)"
       @contextmenu.prevent="(event) => moveSelected(event)"
@@ -79,6 +80,7 @@ const units = computed<Unit[]>(() => store.getters['game/getUnits'])
 const selectedIds = computed<number[]>(() => store.getters['game/getSelectedIds'])
 const selectedUnits = computed<Unit[]>(() => store.getters['game/getSelectedUnits'])
 
+const paused = computed<boolean>(() => store.getters['game/getPaused'])
 const screenView = ref<HTMLElement | null>(null)
 const camera = reactive({ x: 0, y: 0 })
 const mouse = { x: 0, y: 0, inside: false }
@@ -295,6 +297,7 @@ const tick = (time: number) => {
   dragCamera()
   moveCamera(secondsPassed)
   updateSelectionBox()
+  store.dispatch('game/runScenarioEvents', secondsPassed)
   store.dispatch('game/moveUnits', secondsPassed)
   store.dispatch('game/removeDead')
 
@@ -325,6 +328,11 @@ onUnmounted(() => {
   overflow: hidden;
   background: #1a1a1a;
   user-select: none;
+}
+
+.screen-view--paused :deep(*) {
+  // на паузе замирают и анимации юнитов
+  animation-play-state: paused !important;
 }
 
 .world {
