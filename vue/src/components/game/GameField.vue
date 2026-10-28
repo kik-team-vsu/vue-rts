@@ -296,6 +296,7 @@ const tick = (time: number) => {
   moveCamera(secondsPassed)
   updateSelectionBox()
   store.dispatch('game/moveUnits', secondsPassed)
+  store.dispatch('game/removeDead')
 
   frameId = requestAnimationFrame(tick)
 }

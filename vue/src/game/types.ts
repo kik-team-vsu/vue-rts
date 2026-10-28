@@ -48,3 +48,10 @@ export interface Unit extends GameObject {
   hp: number
   target: Point | null // целевая точка при перемещении, null у стоящего объекта
 }
+
+// кнопка панели команд
+export interface Command {
+  id: string
+  label: string
+  action: string // имя action в сторе, например 'game/destroySelectedUnits'
+}

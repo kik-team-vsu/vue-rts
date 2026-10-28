@@ -1,4 +1,4 @@
-import type { BuildingType, ObjectType, StaticObject, Unit, UnitType } from './types'
+import type { BuildingType, Command, ObjectType, StaticObject, Unit, UnitType } from './types'
 
 // размер карты и cell - размер ячейики сетки в пикселях
 export const MAP = { width: 3000, height: 3000, cell: 50 }
@@ -42,3 +42,8 @@ export const START_UNITS: Unit[] = [
   { id: 10, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -150, y: 80 }, target: null },
   { id: 11, type: 'warrior', group: 2, hp: UNIT_TYPES.warrior.maxHp, position: { x: 100, y: 100 }, target: null },
 ]
+
+// команды панели: кнопка описана данными, action вызывается в store игры
+export const COMMANDS: Record<string, Command> = {
+  destroy: { id: 'destroy', label: 'Самоуничтожение', action: 'game/destroySelectedUnits' },
+}

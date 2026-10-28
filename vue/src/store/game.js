@@ -6,6 +6,7 @@ const MUTATIONS = {
   SET_SELECTED_IDS: 'SET_SELECTED_IDS',
   SET_UNIT_TARGET: 'SET_UNIT_TARGET',
   MOVE_UNITS: 'MOVE_UNITS',
+  REMOVE_OBJECT: 'REMOVE_OBJECT',
 }
 
 const MIN_SLIDE = 0.01
@@ -43,6 +44,12 @@ export default {
       if (unit) {
         unit.target = target
       }
+    },
+    // убираем с карты объект с этим id (юнит или здание) и снимаем с него выбор
+    [MUTATIONS.REMOVE_OBJECT]: (state, id) => {
+      state.units = state.units.filter((u) => u.id !== id)
+      state.objects = state.objects.filter((o) => o.id !== id)
+      state.selectedIds = state.selectedIds.filter((selectedId) => selectedId !== id)
     },
     [MUTATIONS.MOVE_UNITS]: (state, secondsPassed) => {
       for (const u of state.units) {
@@ -105,6 +112,19 @@ export default {
           }),
         })
       })
+    },
+    // уничтожение объекта по id
+    destroyObject: (store, id) => {
+      store.commit(MUTATIONS.REMOVE_OBJECT, id)
+    },
+    // объект с hp <= 0 удаляется в том же кадре (вызывается из игрового цикла)
+    removeDead: (store) => {
+      const dead = [...store.state.units, ...store.state.objects].filter((o) => o.hp !== undefined && o.hp <= 0)
+      dead.forEach((o) => store.dispatch('destroyObject', o.id))
+    },
+    // самоуничтожение: каждый выбранный юнит уничтожается через destroyObject
+    destroySelectedUnits: (store) => {
+      store.getters.getSelectedUnits.forEach((unit) => store.dispatch('destroyObject', unit.id))
     },
     moveUnits: (store, secondsPassed) => {
       if (store.state.units.some((u) => u.target)) {
