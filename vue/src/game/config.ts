@@ -25,10 +25,10 @@ export const GROUP_COLORS: Record<number, string> = {
   2: '#dc2626',
 }
 
-// group: 0 - нейтральные, 1 и 2 - разные группы; hp здания равен maxHp его типа
 // группа игрока, остальные группы - враги
 export const PLAYER_GROUP = 1
 
+// group: 0 - нейтральные, 1 и 2 - разные группы; hp здания равен maxHp его типа
 export const START_OBJECTS: StaticObject[] = [
   { id: 1, type: 'house', group: 1, hp: 200, position: { x: -200, y: -150 } },
   { id: 2, type: 'house', group: 2, hp: 200, position: { x: 350, y: 250 } },

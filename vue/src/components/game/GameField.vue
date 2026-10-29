@@ -13,29 +13,36 @@
       <div class="ground" :style="groundStyle" />
 
       <div class="objects-layer">
-        <GameStaticObject
-            v-for="o in objects"
-            :key="o.id"
-            :object="o"
-            :type="OBJECT_TYPES[o.type]"
-            :selected="selectedIds.includes(o.id)"
-            @select="select(o.id)"/>
+        <!-- уничтоженный объект не пропадает сразу, а проигрывает анимацию destroy -->
+        <TransitionGroup name="destroy">
+          <GameStaticObject
+              v-for="o in objects"
+              :key="o.id"
+              :object="o"
+              :type="OBJECT_TYPES[o.type]"
+              :selected="selectedIds.includes(o.id)"
+              @select="select(o.id)"/>
+        </TransitionGroup>
       </div>
 
       <!-- линии пути выбранных юнитов -->
-      <div
-          v-for="order in orders"
-          :key="order.id"
-          class="path-line"
-          :style="order.pathStyle" />
+      <template v-for="order in orders" :key="order.id">
+        <div
+            v-for="(style, index) in order.pathStyles"
+            :key="index"
+            class="path-line"
+            :style="style" />
+      </template>
 
-      <GameUnit
-          v-for="u in units"
-          :key="u.id"
-          :unit="u"
-          :type="UNIT_TYPES[u.type]"
-          :selected="selectedIds.includes(u.id)"
-          @select="(additive) => selectUnit(u.id, additive)"/>
+      <TransitionGroup name="destroy">
+        <GameUnit
+            v-for="u in units"
+            :key="u.id"
+            :unit="u"
+            :type="UNIT_TYPES[u.type]"
+            :selected="selectedIds.includes(u.id)"
+            @select="(additive) => selectUnit(u.id, additive)"/>
+      </TransitionGroup>
 
       <div
           v-for="order in orders"
@@ -81,6 +88,7 @@ const selectedIds = computed<number[]>(() => store.getters['game/getSelectedIds'
 const selectedUnits = computed<Unit[]>(() => store.getters['game/getSelectedUnits'])
 
 const paused = computed<boolean>(() => store.getters['game/getPaused'])
+const isRunning = computed<boolean>(() => store.getters['game/isRunning'])
 const screenView = ref<HTMLElement | null>(null)
 const camera = reactive({ x: 0, y: 0 })
 const mouse = { x: 0, y: 0, inside: false }
@@ -107,22 +115,26 @@ const orders = computed(() => {
   const result = []
   for (const unit of selectedUnits.value) {
     if (unit.target) {
-      const from = worldToScreen(unit.position)
-      const to = worldToScreen(unit.target)
-      const dx = to.x - from.x
-      const dy = to.y - from.y
+      // ломаная от юнита через точки пути до цели
+      const points = [unit.position, ...(unit.path ?? [unit.target])].map(worldToScreen)
+      const to = points[points.length - 1]
       result.push({
         id: unit.id,
         targetStyle: {
           left: to.x + 'px',
           top: to.y + 'px',
         },
-        pathStyle: {
-          left: from.x + 'px',
-          top: from.y + 'px',
-          width: Math.hypot(dx, dy) + 'px',
-          transform: `rotate(${Math.atan2(dy, dx)}rad)`,
-        },
+        pathStyles: points.slice(1).map((point, index) => {
+          const from = points[index]
+          const dx = point.x - from.x
+          const dy = point.y - from.y
+          return {
+            left: from.x + 'px',
+            top: from.y + 'px',
+            width: Math.hypot(dx, dy) + 'px',
+            transform: `rotate(${Math.atan2(dy, dx)}rad)`,
+          }
+        }),
       })
     }
   }
@@ -197,6 +209,10 @@ const isBigEnough = (box: Box) => box.width > MIN_SELECTION_PX || box.height > M
 
 // левая кнопка на пустом месте: начинаем тянуть рамку (клик по объекту сюда не доходит, там stop)
 const startSelect = (e: MouseEvent) => {
+  // в меню и после конца игры рамку не рисуем
+  if (!isRunning.value) {
+    return
+  }
   saveMouse(e)
   selectStart = { x: mouse.x, y: mouse.y }
   selectAdditive = e.shiftKey
@@ -372,6 +388,24 @@ onUnmounted(() => {
 .objects-layer {
   position: absolute;
   z-index: 0;
+}
+
+// уничтожение: объект сжимается к основанию и исчезает
+.destroy-leave-active {
+  animation: destroy 0.4s ease-in forwards;
+  transform-origin: bottom center;
+  pointer-events: none;
+}
+
+@keyframes destroy {
+  30% {
+    transform: scale(1.15);
+    filter: brightness(2);
+  }
+  100% {
+    transform: scale(0, 0.2);
+    opacity: 0;
+  }
 }
 
 .path-line {

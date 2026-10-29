@@ -2,6 +2,7 @@ import { PLAYER_GROUP, START_OBJECTS, START_UNITS, UNIT_TYPES } from '@/game/con
 import { SCENARIOS } from '@/game/scenarios'
 import { clampToMap } from '@/game/coords'
 import { isBlocked } from '@/game/obstacles'
+import { findPath } from '@/game/pathfinding'
 
 const MUTATIONS = {
   SET_SELECTED_IDS: 'SET_SELECTED_IDS',
@@ -16,6 +17,16 @@ const MUTATIONS = {
 
 const MIN_SLIDE = 0.01
 const FORMATION_STEP = 40
+
+const unitMargin = (unit) => UNIT_TYPES[unit.type].width / 2
+
+// приказ юниту идти в точку: путь в обход препятствий считается сразу,
+// target - точка, куда юнит реально придёт (ближайшая доступная)
+const orderUnit = (unit, target, objects) => {
+  const path = findPath(unit.position, target, objects, unitMargin(unit))
+  unit.path = path.length > 0 ? path : null
+  unit.target = path.length > 0 ? path[path.length - 1] : null
+}
 
 // состояние игры: что стоит на карте и что выбрано
 export default {
@@ -46,7 +57,7 @@ export default {
     getStarted: (state) => state.started,
     // игра идёт, если сценарий выбран и игра не закончена
     isRunning: (state, getters) => state.started && !getters.isGameOver,
-    // выбранные юниты игрока (чужими командовать нельзя)
+    // выбранные юниты игрока (группа PLAYER_GROUP)
     getOwnSelectedUnits: (state) => state.units.filter((u) => state.selectedIds.includes(u.id) && u.group === PLAYER_GROUP),
     getPaused: (state) => state.paused,
     getScenarioId: (state) => state.scenarioId,
@@ -67,7 +78,7 @@ export default {
     [MUTATIONS.SET_UNIT_TARGET]: (state, { id, target }) => {
       const unit = state.units.find((u) => u.id === id)
       if (unit) {
-        unit.target = target
+        orderUnit(unit, target, state.objects)
       }
     },
     // удаляем объект по id и убираем из выбора
@@ -101,32 +112,42 @@ export default {
       due.forEach((e) => {
         const unit = state.units.find((u) => u.id === e.unitId)
         if (unit) {
-          unit.target = e.target
+          orderUnit(unit, e.target, state.objects)
         }
       })
       state.pendingEvents = state.pendingEvents.filter((e) => e.at > state.scenarioTime)
     },
+    // юнит идёт по точкам пути, последняя точка пути - target
     [MUTATIONS.MOVE_UNITS]: (state, secondsPassed) => {
       for (const u of state.units) {
         if (u.target) {
-          const dx = u.target.x - u.position.x
-          const dy = u.target.y - u.position.y
+          if (!u.path || u.path.length === 0) {
+            u.path = [u.target]
+          }
+          const waypoint = u.path[0]
+          const dx = waypoint.x - u.position.x
+          const dy = waypoint.y - u.position.y
           const dist = Math.hypot(dx, dy)
           const step = UNIT_TYPES[u.type].speedPxPerSecond * secondsPassed
 
           const next = dist <= step
-            ? u.target
+            ? waypoint
             : { x: u.position.x + (dx / dist) * step, y: u.position.y + (dy / dist) * step }
 
-          const margin = UNIT_TYPES[u.type].width / 2
+          const margin = unitMargin(u)
           const blocked = (point) => isBlocked(point, state.objects, margin)
 
           if (!blocked(next) || blocked(u.position)) {
             u.position = next
-            if (next === u.target) {
-              u.target = null
+            if (next === waypoint) {
+              u.path.shift()
+              if (u.path.length === 0) {
+                u.target = null
+                u.path = null
+              }
             }
           } else {
+            // задели угол препятствия - скользим вдоль стены
             const slides = []
             if (Math.abs(dx) > MIN_SLIDE) {
               slides.push({ x: u.position.x + Math.sign(dx) * Math.min(step, Math.abs(dx)), y: u.position.y })
@@ -137,8 +158,20 @@ export default {
             const slide = slides.find((point) => !blocked(point))
             if (slide) {
               u.position = slide
-            } else {
-              u.target = null
+            }
+            else {
+              // путь перекрыт (например, новым зданием) - ищем путь заново,
+              // если новый путь упирается туда же, дальше идти некуда
+              const path = findPath(u.position, u.target, state.objects, margin)
+              const samePath = path.length > 0 && path[0].x === waypoint.x && path[0].y === waypoint.y
+              if (path.length > 0 && !samePath) {
+                u.path = path
+                u.target = path[path.length - 1]
+              }
+              else {
+                u.target = null
+                u.path = null
+              }
             }
           }
         }
@@ -205,12 +238,12 @@ export default {
       const dead = [...store.state.units, ...store.state.objects].filter((o) => o.hp !== undefined && o.hp <= 0)
       dead.forEach((o) => store.dispatch('destroyObject', o.id))
     },
-    // самоуничтожение выбранных юнитов игрока
+    // самоуничтожение выбранных юнитов
     destroySelectedUnits: (store) => {
       if (!store.getters.isRunning) {
         return
       }
-      store.getters.getOwnSelectedUnits.forEach((unit) => store.dispatch('destroyObject', unit.id))
+      store.getters.getSelectedUnits.forEach((unit) => store.dispatch('destroyObject', unit.id))
     },
     // пауза: нажали - стоим, ещё раз - продолжаем
     togglePause: (store) => {
