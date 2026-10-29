@@ -1,4 +1,4 @@
-import type { BuildingType, ObjectType, StaticObject, Unit, UnitType } from './types'
+import type { BuildingType, Command, ObjectType, StaticObject, Unit, UnitType } from './types'
 
 // размер карты и cell - размер ячейики сетки в пикселях
 export const MAP = { width: 3000, height: 3000, cell: 50 }
@@ -26,6 +26,9 @@ export const GROUP_COLORS: Record<number, string> = {
 }
 
 // group: 0 - нейтральные, 1 и 2 - разные группы; hp здания равен maxHp его типа
+// группа игрока, остальные группы - враги
+export const PLAYER_GROUP = 1
+
 export const START_OBJECTS: StaticObject[] = [
   { id: 1, type: 'house', group: 1, hp: 200, position: { x: -200, y: -150 } },
   { id: 2, type: 'house', group: 2, hp: 200, position: { x: 350, y: 250 } },
@@ -42,3 +45,8 @@ export const START_UNITS: Unit[] = [
   { id: 10, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -150, y: 80 }, target: null },
   { id: 11, type: 'warrior', group: 2, hp: UNIT_TYPES.warrior.maxHp, position: { x: 100, y: 100 }, target: null },
 ]
+
+// кнопки панели, action вызывается из стора
+export const COMMANDS: Record<string, Command> = {
+  destroy: { id: 'destroy', label: 'Самоуничтожение', action: 'game/destroySelectedUnits' },
+}
