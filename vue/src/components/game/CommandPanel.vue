@@ -24,14 +24,14 @@ import type { Command } from '@/game/types'
 // одна панель команд, кнопки зависят от выбора
 const store = useStore()
 const isRunning = computed<boolean>(() => store.getters['game/isRunning'])
-const ownSelectedUnits = computed(() => store.getters['game/getOwnSelectedUnits'])
+const selectedUnits = computed(() => store.getters['game/getSelectedUnits'])
 
 const commands = computed<Command[]>(() => {
   // в меню и после конца игры кнопок нет
   if (!isRunning.value) {
     return []
   }
-  if (ownSelectedUnits.value.length > 0) {
+  if (selectedUnits.value.length > 0) {
     return [COMMANDS.destroy]
   }
   // здание (спавн, задача 19) и стройку (задача 20) потом добавим сюда

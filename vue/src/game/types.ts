@@ -47,6 +47,7 @@ export interface Unit extends GameObject {
   type: string // из UNIT_TYPES
   hp: number
   target: Point | null // целевая точка при перемещении, null у стоящего объекта
+  path?: Point[] | null // точки пути в обход препятствий, последняя совпадает с target
 }
 
 // событие сценария: в момент at (секунды) юнит идёт в точку target
