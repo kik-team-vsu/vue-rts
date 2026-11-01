@@ -1,9 +1,12 @@
 import { OBJECT_TYPES } from './config'
 import { ISO_SCALE } from './coords'
-import type { Point, StaticObject } from './types'
+import { isTerrainPassable } from './terrain'
+import type { Point, StaticObject, TerrainType } from './types'
 
-// Можно ли юниту стоять в точке (чтобы не прятался за здания)
-export const isBlocked = (point: Point, objects: StaticObject[], margin: number): boolean =>
+// Можно ли юниту стоять в точке: не на непроходимой для него местности
+// и не в зоне, скрытой за стенами здания (чтобы не прятался за здания)
+export const isBlocked = (point: Point, objects: StaticObject[], margin: number, terrain?: TerrainType | 'both'): boolean =>
+  !isTerrainPassable(point, terrain) ||
   objects.some((o) => {
     const type = OBJECT_TYPES[o.type]
     if (!type.wallHeight) {

@@ -12,6 +12,13 @@
     <div class="world" :style="worldStyle">
       <div class="ground" :style="groundStyle" />
 
+      <!-- зоны воды: тот же поворот и сжатие, что у земли -->
+      <div
+          v-for="(zone, index) in TERRAIN_ZONES"
+          :key="'water-' + index"
+          class="water"
+          :style="waterStyle(zone)" />
+
       <div class="objects-layer">
         <!-- уничтоженный объект не пропадает сразу, а проигрывает анимацию destroy -->
         <TransitionGroup name="destroy">
@@ -64,9 +71,9 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useStore } from 'vuex'
 import GameStaticObject from './GameStaticObject.vue'
 import GameUnit from './GameUnit.vue'
-import { CAMERA, MAP, OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
+import { CAMERA, MAP, OBJECT_TYPES, TERRAIN_ZONES, UNIT_TYPES } from '@/game/config'
 import { clampToMap, screenToWorld, worldToScreen } from '@/game/coords'
-import type { Point, StaticObject, Unit } from '@/game/types'
+import type { Point, StaticObject, TerrainZone, Unit } from '@/game/types'
 
 interface Box {
   left: number
@@ -110,6 +117,14 @@ const groundStyle = {
   height: MAP.height + 'px',
   backgroundSize: `${MAP.cell}px ${MAP.cell}px, ${MAP.cell}px ${MAP.cell}px, 256px 256px`,
 }
+
+// зона воды в мировых координатах, таких же как у .ground
+const waterStyle = (zone: TerrainZone) => ({
+  left: zone.x + 'px',
+  top: zone.y + 'px',
+  width: zone.width + 'px',
+  height: zone.height + 'px',
+})
 
 const orders = computed(() => {
   const result = []
@@ -388,6 +403,13 @@ onUnmounted(() => {
 .objects-layer {
   position: absolute;
   z-index: 0;
+}
+
+.water {
+  position: absolute;
+  // как у .ground: ромбовидная вода в изометрии
+  transform: scaleY(0.5) rotate(45deg);
+  background: #2563eb;
 }
 
 // уничтожение: объект сжимается к основанию и исчезает

@@ -1,9 +1,9 @@
 import { MAP } from './config'
 import { isBlocked } from './obstacles'
-import type { Point, StaticObject } from './types'
+import type { Point, StaticObject, TerrainType } from './types'
 
-// Поиск пути в обход зданий: A* по сетке клеток, потом путь спрямляется.
-// Свободна ли точка, решает isBlocked, поэтому зона "за зданием" тоже обходится.
+// Поиск пути в обход зданий и непроходимой местности: A* по сетке клеток, потом путь спрямляется.
+// Свободна ли точка, решает isBlocked, поэтому зона "за зданием" и чужая местность тоже обходится.
 
 const STEP = 25 // шаг сетки поиска, px
 const CHECK_STEP = 5 // шаг проверки отрезка на препятствия, px
@@ -41,12 +41,12 @@ const neighbors = (cell: number): number[] => {
 const distance = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y)
 
 // можно ли пройти по прямой из a в b; если a уже в запретной зоне, сначала даём из неё выйти
-const isSegmentFree = (a: Point, b: Point, objects: StaticObject[], margin: number): boolean => {
+const isSegmentFree = (a: Point, b: Point, objects: StaticObject[], margin: number, terrain?: TerrainType | 'both'): boolean => {
   const count = Math.ceil(distance(a, b) / CHECK_STEP)
-  let leaving = isBlocked(a, objects, margin)
+  let leaving = isBlocked(a, objects, margin, terrain)
   for (let i = 1; i <= count; i++) {
     const t = i / count
-    const blocked = isBlocked({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, objects, margin)
+    const blocked = isBlocked({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, objects, margin, terrain)
     if (blocked && !leaving) {
       return false
     }
@@ -58,13 +58,13 @@ const isSegmentFree = (a: Point, b: Point, objects: StaticObject[], margin: numb
 }
 
 // спрямляем путь: из каждой точки идём сразу в самую дальнюю, которую видно по прямой
-const smoothPath = (from: Point, points: Point[], objects: StaticObject[], margin: number): Point[] => {
+const smoothPath = (from: Point, points: Point[], objects: StaticObject[], margin: number, terrain?: TerrainType | 'both'): Point[] => {
   const result: Point[] = []
   let anchor = from
   let i = 0
   while (i < points.length) {
     let j = i
-    while (j + 1 < points.length && isSegmentFree(anchor, points[j + 1], objects, margin)) {
+    while (j + 1 < points.length && isSegmentFree(anchor, points[j + 1], objects, margin, terrain)) {
       j++
     }
     result.push(points[j])
@@ -74,13 +74,13 @@ const smoothPath = (from: Point, points: Point[], objects: StaticObject[], margi
   return result
 }
 
-// цель внутри здания: сдвигаем её по прямой к юниту, пока не выйдет из здания
-const freeTarget = (from: Point, to: Point, objects: StaticObject[], margin: number): Point => {
+// цель внутри здания или на чужой местности: сдвигаем её по прямой к юниту, пока не выйдет из запретной зоны
+const freeTarget = (from: Point, to: Point, objects: StaticObject[], margin: number, terrain?: TerrainType | 'both'): Point => {
   const count = Math.ceil(distance(from, to) / CHECK_STEP)
   for (let i = 0; i < count; i++) {
     const t = i / count
     const point = { x: to.x + (from.x - to.x) * t, y: to.y + (from.y - to.y) * t }
-    if (!isBlocked(point, objects, margin)) {
+    if (!isBlocked(point, objects, margin, terrain)) {
       return point
     }
   }
@@ -88,11 +88,11 @@ const freeTarget = (from: Point, to: Point, objects: StaticObject[], margin: num
 }
 
 // Путь из from в to в обход препятствий: список точек, последняя - куда юнит реально придёт.
-// Если to внутри препятствия или до неё не добраться, путь ведёт в ближайшую доступную точку.
+// Если to внутри препятствия или на чужой местности или до неё не добраться, путь ведёт в ближайшую доступную точку.
 // Пустой список - идти некуда.
-export const findPath = (from: Point, to: Point, objects: StaticObject[], margin: number): Point[] => {
-  const goal = freeTarget(from, to, objects, margin)
-  if (isSegmentFree(from, goal, objects, margin)) {
+export const findPath = (from: Point, to: Point, objects: StaticObject[], margin: number, terrain?: TerrainType | 'both'): Point[] => {
+  const goal = freeTarget(from, to, objects, margin, terrain)
+  if (isSegmentFree(from, goal, objects, margin, terrain)) {
     return goal === from ? [] : [goal]
   }
 
@@ -120,7 +120,7 @@ export const findPath = (from: Point, to: Point, objects: StaticObject[], margin
     if (distance(point, goal) < distance(cellToPoint(best), goal)) {
       best = cell
     }
-    if (distance(point, goal) <= STEP && isSegmentFree(point, goal, objects, margin)) {
+    if (distance(point, goal) <= STEP && isSegmentFree(point, goal, objects, margin, terrain)) {
       best = cell
       reached = true
     }
@@ -129,7 +129,7 @@ export const findPath = (from: Point, to: Point, objects: StaticObject[], margin
     for (const next of neighbors(cell)) {
       const nextPoint = cellToPoint(next)
       const nextCost = cost[cell] + distance(point, nextPoint)
-      if (nextCost < cost[next] && isSegmentFree(point, nextPoint, objects, margin)) {
+      if (nextCost < cost[next] && isSegmentFree(point, nextPoint, objects, margin, terrain)) {
         cost[next] = nextCost
         // расстояние до цели чуть завышаем: поиск идёт прямее к цели и открывает меньше клеток
         estimate[next] = nextCost + distance(nextPoint, goal) * 1.1
@@ -147,5 +147,5 @@ export const findPath = (from: Point, to: Point, objects: StaticObject[], margin
   if (reached) {
     points.push(goal)
   }
-  return smoothPath(from, points, objects, margin)
+  return smoothPath(from, points, objects, margin, terrain)
 }

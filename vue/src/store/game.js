@@ -20,10 +20,10 @@ const FORMATION_STEP = 40
 
 const unitMargin = (unit) => UNIT_TYPES[unit.type].width / 2
 
-// приказ юниту идти в точку: путь в обход препятствий считается сразу,
+// приказ юниту идти в точку: путь в обход препятствий и чужой местности считается сразу,
 // target - точка, куда юнит реально придёт (ближайшая доступная)
 const orderUnit = (unit, target, objects) => {
-  const path = findPath(unit.position, target, objects, unitMargin(unit))
+  const path = findPath(unit.position, target, objects, unitMargin(unit), UNIT_TYPES[unit.type].terrain)
   unit.path = path.length > 0 ? path : null
   unit.target = path.length > 0 ? path[path.length - 1] : null
 }
@@ -135,7 +135,8 @@ export default {
             : { x: u.position.x + (dx / dist) * step, y: u.position.y + (dy / dist) * step }
 
           const margin = unitMargin(u)
-          const blocked = (point) => isBlocked(point, state.objects, margin)
+          const terrain = UNIT_TYPES[u.type].terrain
+          const blocked = (point) => isBlocked(point, state.objects, margin, terrain)
 
           if (!blocked(next) || blocked(u.position)) {
             u.position = next
@@ -162,7 +163,7 @@ export default {
             else {
               // путь перекрыт (например, новым зданием) - ищем путь заново,
               // если новый путь упирается туда же, дальше идти некуда
-              const path = findPath(u.position, u.target, state.objects, margin)
+              const path = findPath(u.position, u.target, state.objects, margin, terrain)
               const samePath = path.length > 0 && path[0].x === waypoint.x && path[0].y === waypoint.y
               if (path.length > 0 && !samePath) {
                 u.path = path

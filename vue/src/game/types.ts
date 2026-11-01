@@ -3,6 +3,18 @@ export interface Point {
   y: number
 }
 
+// тип местности
+export type TerrainType = 'land' | 'water'
+
+// прямоугольная зона местности в мировых координатах, x и y - левый верхний угол
+export interface TerrainZone {
+  type: TerrainType
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export interface ObjectType {
   name: string
   width: number
@@ -26,6 +38,7 @@ export interface UnitType extends ObjectType {
   maxHp: number
   strength: number // урон за один удар
   attackSpeed: number // ударов в секунду
+  terrain?: TerrainType | 'both' // где юнит может ходить, по умолчанию 'both' - везде
 }
 
 // любой игровой объект

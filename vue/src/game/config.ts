@@ -1,7 +1,12 @@
-import type { BuildingType, Command, ObjectType, StaticObject, Unit, UnitType } from './types'
+import type { BuildingType, Command, ObjectType, StaticObject, TerrainZone, Unit, UnitType } from './types'
 
 // размер карты и cell - размер ячейики сетки в пикселях
 export const MAP = { width: 3000, height: 3000, cell: 50 }
+
+// зоны воды: всё вне зон - суша; зона в мировых координатах, x и y - левый верхний угол
+export const TERRAIN_ZONES: TerrainZone[] = [
+  { type: 'water', x: 400, y: 700, width: 800, height: 600 },
+]
 
 // edgePx - зона у края экрана, где камера начинает двигаться
 export const CAMERA = { speedPxPerSecond: 500, edgePx: 80 }
@@ -16,8 +21,9 @@ export const OBJECT_TYPES: Record<string, ObjectType | BuildingType> = {
 }
 
 export const UNIT_TYPES: Record<string, UnitType> = {
-  worker: { name: 'Рабочий', width: 24, height: 40, color: '#0000ff', speedPxPerSecond: 80, maxHp: 50, strength: 5, attackSpeed: 1 },
-  warrior: { name: 'Воин', width: 32, height: 52, color: '#ff0000', speedPxPerSecond: 150, maxHp: 100, strength: 15, attackSpeed: 1.5 },
+  worker: { name: 'Рабочий', width: 24, height: 40, color: '#0000ff', speedPxPerSecond: 80, maxHp: 50, strength: 5, attackSpeed: 1, terrain: 'land' },
+  warrior: { name: 'Воин', width: 32, height: 52, color: '#ff0000', speedPxPerSecond: 150, maxHp: 100, strength: 15, attackSpeed: 1.5, terrain: 'land' },
+  boat: { name: 'Лодка', width: 40, height: 24, color: '#d97706', speedPxPerSecond: 100, maxHp: 80, strength: 0, attackSpeed: 0, terrain: 'water' },
 }
 
 export const GROUP_COLORS: Record<number, string> = {
@@ -44,6 +50,7 @@ export const START_UNITS: Unit[] = [
   { id: 9, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -100, y: 120 }, target: null },
   { id: 10, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -150, y: 80 }, target: null },
   { id: 11, type: 'warrior', group: 2, hp: UNIT_TYPES.warrior.maxHp, position: { x: 100, y: 100 }, target: null },
+  { id: 12, type: 'boat', group: 1, hp: UNIT_TYPES.boat.maxHp, position: { x: 800, y: 1000 }, target: null },
 ]
 
 // кнопки панели, action вызывается из стора
