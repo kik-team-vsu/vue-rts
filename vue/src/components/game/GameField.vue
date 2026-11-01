@@ -12,12 +12,13 @@
     <div class="world" :style="worldStyle">
       <div class="ground" :style="groundStyle" />
 
-      <!-- зоны воды: тот же поворот и сжатие, что у земли -->
+      <!-- зоны местности: тот же поворот и сжатие, что у земли -->
       <div
           v-for="(zone, index) in TERRAIN_ZONES"
-          :key="'water-' + index"
-          class="water"
-          :style="waterStyle(zone)" />
+          :key="'terrain-' + index"
+          class="terrain-zone"
+          :class="'terrain-zone--' + zone.type"
+          :style="zoneStyle(zone)" />
 
       <div class="objects-layer">
         <!-- уничтоженный объект не пропадает сразу, а проигрывает анимацию destroy -->
@@ -118,8 +119,8 @@ const groundStyle = {
   backgroundSize: `${MAP.cell}px ${MAP.cell}px, ${MAP.cell}px ${MAP.cell}px, 256px 256px`,
 }
 
-// зона воды в мировых координатах, таких же как у .ground
-const waterStyle = (zone: TerrainZone) => ({
+// зона местности в мировых координатах
+const zoneStyle = (zone: TerrainZone) => ({
   left: zone.x + 'px',
   top: zone.y + 'px',
   width: zone.width + 'px',
@@ -405,11 +406,20 @@ onUnmounted(() => {
   z-index: 0;
 }
 
-.water {
+.terrain-zone {
   position: absolute;
-  // как у .ground: ромбовидная вода в изометрии
+  // как у .ground: ромбовидная зона в изометрии
   transform: scaleY(0.5) rotate(45deg);
-  background: #2563eb;
+
+  &--water {
+    background-color: #2563eb;
+    background-image: url('../../assets/water.svg');
+  }
+
+  &--mountain {
+    background-color: #78716c;
+    background-image: url('../../assets/mountain.svg');
+  }
 }
 
 // уничтожение: объект сжимается к основанию и исчезает

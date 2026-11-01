@@ -3,8 +3,8 @@ export interface Point {
   y: number
 }
 
-// тип местности
-export type TerrainType = 'land' | 'water'
+// тип местности; горы непроходимы для всех юнитов
+export type TerrainType = 'land' | 'water' | 'mountain'
 
 // прямоугольная зона местности в мировых координатах, x и y - левый верхний угол
 export interface TerrainZone {

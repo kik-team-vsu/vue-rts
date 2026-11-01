@@ -3,9 +3,11 @@ import type { BuildingType, Command, ObjectType, StaticObject, TerrainZone, Unit
 // размер карты и cell - размер ячейики сетки в пикселях
 export const MAP = { width: 3000, height: 3000, cell: 50 }
 
-// зоны воды: всё вне зон - суша; зона в мировых координатах, x и y - левый верхний угол
+// зоны местности: вода и горы, всё вне зон - суша; зоны не пересекаются.
+// Зона в мировых координатах, x и y - левый верхний угол
 export const TERRAIN_ZONES: TerrainZone[] = [
-  { type: 'water', x: 400, y: 700, width: 800, height: 600 },
+  { type: 'water', x: 700, y: -250, width: 500, height: 500 },
+  { type: 'mountain', x: -300, y: -800, width: 500, height: 250 },
 ]
 
 // edgePx - зона у края экрана, где камера начинает двигаться

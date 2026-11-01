@@ -102,7 +102,8 @@ const unitSpeed = computed(() => {
 const TERRAIN_NAMES = {
   land: 'суша',
   water: 'вода',
-  both: 'везде',
+  mountain: 'горы',
+  both: 'суша и вода',
 }
 
 const unitTerrain = computed(() => {
