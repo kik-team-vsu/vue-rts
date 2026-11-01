@@ -1,9 +1,24 @@
 <template>
   <div
-      v-if="commands.length > 0"
+      v-if="isRunning"
       class="command-panel"
       @mousedown.stop
       @contextmenu.prevent>
+    <div class="command-panel__title">Строительство</div>
+    <button
+        v-for="building in buildings"
+        :key="building.id"
+        class="command-panel__button command-panel__button--build"
+        :aria-pressed="buildingType === building.id"
+        :disabled="paused"
+        @mousedown.prevent
+        @click="() => startBuilding(building.id)">
+      {{ building.name }} {{ building.size }}×{{ building.size }}
+    </button>
+    <template v-if="buildingType">
+      <div class="command-panel__hint">ЛКМ — построить<br>ПКМ или Esc — отменить</div>
+      <button class="command-panel__button command-panel__button--cancel" @click="cancelBuilding">Отмена</button>
+    </template>
     <button
         v-for="command in commands"
         :key="command.id"
@@ -18,25 +33,26 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useStore } from 'vuex'
-import { COMMANDS } from '@/game/config'
+import { COMMANDS, OBJECT_TYPES } from '@/game/config'
+import { getBuildingType } from '@/game/building'
 import type { Command } from '@/game/types'
 
-// одна панель команд, кнопки зависят от выбора
 const store = useStore()
 const isRunning = computed<boolean>(() => store.getters['game/isRunning'])
 const selectedUnits = computed(() => store.getters['game/getSelectedUnits'])
-
-const commands = computed<Command[]>(() => {
-  // в меню и после конца игры кнопок нет
-  if (!isRunning.value) {
-    return []
-  }
-  if (selectedUnits.value.length > 0) {
-    return [COMMANDS.destroy]
-  }
-  // здание (спавн, задача 19) и стройку (задача 20) потом добавим сюда
-  return []
+const paused = computed<boolean>(() => store.getters['game/getPaused'])
+const buildingType = computed<string | null>(() => store.getters['game/getBuildingType'])
+const buildings = Object.keys(OBJECT_TYPES).flatMap((id) => {
+  const type = getBuildingType(id)
+  return type ? [{ id, name: type.name, size: type.size }] : []
 })
+
+const startBuilding = (type: string) => store.dispatch('game/startBuilding', type)
+const cancelBuilding = () => store.dispatch('game/cancelBuilding')
+
+const commands = computed<Command[]>(() =>
+  isRunning.value && selectedUnits.value.length > 0 ? [COMMANDS.destroy] : [],
+)
 
 const run = (command: Command) => {
   store.dispatch(command.action)
@@ -66,6 +82,34 @@ const run = (command: Command) => {
     &:hover {
       background: #b91c1c;
     }
+
+    &--build {
+      background: #365314;
+
+      &:hover,
+      &[aria-pressed='true'] {
+        background: #4d7c0f;
+      }
+    }
+
+    &--cancel {
+      background: #475569;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+  }
+
+  &__title {
+    color: #fff;
+    font-weight: bold;
+  }
+
+  &__hint {
+    color: #fff;
+    font-size: 13px;
   }
 }
 </style>

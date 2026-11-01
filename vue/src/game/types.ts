@@ -3,6 +3,17 @@ export interface Point {
   y: number
 }
 
+export type TerrainZoneType = 'lake' | 'river' | 'sand' | 'mountain'
+
+// Прямоугольная зона местности, x и y — левый верхний угол
+export interface TerrainZone {
+  type: TerrainZoneType
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export interface ObjectType {
   name: string
   width: number

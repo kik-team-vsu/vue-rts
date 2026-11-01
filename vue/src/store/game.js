@@ -1,7 +1,8 @@
-import { OBJECT_TYPES, PLAYER_GROUP, START_OBJECTS, START_UNITS, UNIT_TYPES } from '@/game/config'
+import { OBJECT_TYPES, PLAYER_GROUP, START_OBJECTS, START_UNITS, TERRAIN_ZONES, UNIT_TYPES } from '@/game/config'
 import { SCENARIOS } from '@/game/scenarios'
 import { advanceUnits, clampUnitTarget, orderUnit } from '@/game/movement'
 import { isAreaFree, staticFootprint, unitFootprint } from '@/game/spatial'
+import { getBuildingPlacement, getBuildingType, isBuildingTerrainFree } from '@/game/building'
 
 const MUTATIONS = {
   SET_SELECTED_IDS: 'SET_SELECTED_IDS',
@@ -13,9 +14,11 @@ const MUTATIONS = {
   OPEN_MENU: 'OPEN_MENU',
   RUN_SCENARIO_EVENTS: 'RUN_SCENARIO_EVENTS',
   ADD_OBJECT: 'ADD_OBJECT',
+  SET_BUILDING_TYPE: 'SET_BUILDING_TYPE',
 }
 
 const FORMATION_STEP = 40
+const nextId = (objects, units) => Math.max(0, ...objects.map((object) => object.id), ...units.map((unit) => unit.id)) + 1
 
 const canAddObject = (state, { kind, object }) => {
   if (!object || !Number.isSafeInteger(object.id) || object.id <= 0 ||
@@ -28,6 +31,7 @@ const canAddObject = (state, { kind, object }) => {
   if (kind === 'static' && Object.hasOwn(OBJECT_TYPES, object.type)) {
     const type = OBJECT_TYPES[object.type]
     return (!('maxHp' in type) || (Number.isFinite(object.hp) && object.hp > 0)) &&
+      (!('size' in type) || isBuildingTerrainFree(state, staticFootprint(object))) &&
       isAreaFree(state, staticFootprint(object))
   }
   return false
@@ -40,6 +44,9 @@ export default {
     return {
       objects: structuredClone(START_OBJECTS),
       units: structuredClone(START_UNITS),
+      terrainZones: structuredClone(TERRAIN_ZONES),
+      nextObjectId: nextId(START_OBJECTS, START_UNITS),
+      buildingType: null,
       selectedIds: [],
       started: false, // false - показываем меню
       paused: false,
@@ -51,6 +58,7 @@ export default {
   getters: {
     getObjects: (state) => state.objects,
     getUnits: (state) => state.units,
+    getBuildingType: (state) => state.buildingType,
     getSelectedIds: (state) => state.selectedIds,
     getSelected: (state) => {
       if (state.selectedIds.length !== 1) {
@@ -105,13 +113,21 @@ export default {
       } else {
         state.objects.push(object)
       }
+      state.nextObjectId = Math.max(state.nextObjectId, object.id + 1)
+    },
+    [MUTATIONS.SET_BUILDING_TYPE]: (state, type) => {
+      state.buildingType = type
     },
     [MUTATIONS.SET_PAUSED]: (state, paused) => {
       state.paused = paused
+      if (paused) state.buildingType = null
     },
     [MUTATIONS.LOAD_SCENARIO]: (state, scenario) => {
       state.objects = structuredClone(scenario.objects)
       state.units = structuredClone(scenario.units)
+      state.terrainZones = structuredClone(TERRAIN_ZONES)
+      state.nextObjectId = nextId(scenario.objects, scenario.units)
+      state.buildingType = null
       state.selectedIds = []
       state.paused = false
       state.started = true
@@ -123,6 +139,7 @@ export default {
       state.started = false
       state.paused = false
       state.selectedIds = []
+      state.buildingType = null
     },
     // Двигаем время сценария и запускаем события
     [MUTATIONS.RUN_SCENARIO_EVENTS]: (state, secondsPassed) => {
@@ -141,6 +158,34 @@ export default {
     },
   },
   actions: {
+    startBuilding: (store, type) => {
+      if (!store.getters.isRunning || store.state.paused || !getBuildingType(type)) return false
+      store.commit(MUTATIONS.SET_BUILDING_TYPE, type)
+      return true
+    },
+    cancelBuilding: (store) => {
+      store.commit(MUTATIONS.SET_BUILDING_TYPE, null)
+    },
+    placeBuilding: (store, point) => {
+      const typeId = store.state.buildingType
+      if (!store.getters.isRunning || store.state.paused || !typeId) return false
+      // Проверяем актуальный мир повторно: под превью мог зайти юнит
+      const placement = getBuildingPlacement(store.state, typeId, point)
+      if (!placement?.valid) return false
+      const type = getBuildingType(typeId)
+      store.commit(MUTATIONS.ADD_OBJECT, {
+        kind: 'static',
+        object: {
+          id: store.state.nextObjectId,
+          type: typeId,
+          position: placement.position,
+          group: PLAYER_GROUP,
+          hp: type.maxHp,
+        },
+      })
+      store.commit(MUTATIONS.SET_BUILDING_TYPE, null)
+      return true
+    },
     select: (store, id) => {
       if (!store.getters.isRunning) {
         return
@@ -203,6 +248,7 @@ export default {
     // Уничтожить объект по id
     destroyObject: (store, id) => {
       store.commit(MUTATIONS.REMOVE_OBJECT, id)
+      if (!store.getters.isRunning) store.commit(MUTATIONS.SET_BUILDING_TYPE, null)
     },
     // Удаляем объекты у которых hp <= 0
     removeDead: (store) => {

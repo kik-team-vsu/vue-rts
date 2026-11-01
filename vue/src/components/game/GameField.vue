@@ -3,9 +3,10 @@
       ref="screenView"
       class="screen-view"
       :class="{ 'screen-view--paused': paused }"
+      @mousedown.left.capture="placeBuilding"
       @mousedown.left="(event) => startSelect(event)"
       @mousedown.middle.prevent="(event) => startDrag(event)"
-      @contextmenu.prevent="(event) => moveSelected(event)"
+      @contextmenu.prevent="(event) => handleContextMenu(event)"
       @mousemove="(event) => saveMouse(event)"
       @mouseleave="() => resetMouse()">
 
@@ -13,7 +14,7 @@
       <div class="ground" :style="groundStyle" />
 
       <div class="objects-layer">
-        <!-- уничтоженный объект не пропадает сразу, а проигрывает анимацию destroy -->
+        <!-- Уничтоженный объект не пропадает сразу, а проигрывает анимацию destroy -->
         <TransitionGroup name="destroy">
           <GameStaticObject
               v-for="o in objects"
@@ -25,7 +26,7 @@
         </TransitionGroup>
       </div>
 
-      <!-- линии пути выбранных юнитов -->
+      <!-- Линии пути выбранных юнитов -->
       <template v-for="order in orders" :key="order.id">
         <div
             v-for="(style, index) in order.pathStyles"
@@ -50,6 +51,12 @@
           class="target-mark"
           :style="order.targetStyle" />
 
+      <BuildingPreview
+          v-if="buildingType && buildingConfig && buildingPlacement"
+          :type-id="buildingType"
+          :type="buildingConfig"
+          :placement="buildingPlacement" />
+
     </div>
 
     <div
@@ -64,6 +71,8 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useStore } from 'vuex'
 import GameStaticObject from './GameStaticObject.vue'
 import GameUnit from './GameUnit.vue'
+import BuildingPreview from './BuildingPreview.vue'
+import { getBuildingPlacement, getBuildingType } from '@/game/building'
 import { CAMERA, MAP, OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
 import { clampToMap, screenToWorld, worldToScreen } from '@/game/coords'
 import type { Point, StaticObject, Unit } from '@/game/types'
@@ -75,27 +84,42 @@ interface Box {
   height: number
 }
 
-// перетаскивание камеры средней кнопкой мыши
+// Перетаскивание камеры средней кнопкой мыши
 let dragging = false
 let dragLast: Point = { x: 0, y: 0 }
 let dragCurrent: Point = { x: 0, y: 0 }
 
-// объекты, юниты и выбор хранятся в store
+// Объекты, юниты и выбор хранятся в store
 const store = useStore()
 const objects = computed<StaticObject[]>(() => store.getters['game/getObjects'])
 const units = computed<Unit[]>(() => store.getters['game/getUnits'])
 const selectedIds = computed<number[]>(() => store.getters['game/getSelectedIds'])
 const selectedUnits = computed<Unit[]>(() => store.getters['game/getSelectedUnits'])
+const buildingType = computed<string | null>(() => store.getters['game/getBuildingType'])
+const buildingConfig = computed(() => buildingType.value ? getBuildingType(buildingType.value) : null)
 
 const paused = computed<boolean>(() => store.getters['game/getPaused'])
 const isRunning = computed<boolean>(() => store.getters['game/isRunning'])
 const screenView = ref<HTMLElement | null>(null)
 const camera = reactive({ x: 0, y: 0 })
-const mouse = { x: 0, y: 0, inside: false }
+const mouse = reactive({ x: 0, y: 0, inside: false })
+const viewport = reactive({ width: 0, height: 0 })
+const resizeObserver = new ResizeObserver(([entry]) => {
+  viewport.width = entry.contentRect.width
+  viewport.height = entry.contentRect.height
+})
+const buildingPlacement = computed(() => {
+  if (!buildingType.value || !mouse.inside || !isRunning.value || paused.value) return null
+  const point = screenToWorld({
+    x: mouse.x - viewport.width / 2 + camera.x,
+    y: mouse.y - viewport.height / 2 + camera.y,
+  })
+  return getBuildingPlacement(store.state.game, buildingType.value, point)
+})
 
-// выделение рамкой юнитов
+// Выделение рамкой юнитов
 let selectStart: Point | null = null
-// рамку начали с зажатым shift: найденные юниты добавляются к уже выбранным
+// Рамку начали с зажатым shift: найденные юниты добавляются к уже выбранным
 let selectAdditive = false
 const selectionBox = ref<Box | null>(null)
 
@@ -115,7 +139,7 @@ const orders = computed(() => {
   const result = []
   for (const unit of selectedUnits.value) {
     if (unit.target) {
-      // ломаная от юнита через точки пути до цели
+      // Ломаная от юнита через точки пути до цели
       const points = [unit.position, ...(unit.path ?? [unit.target])].map(worldToScreen)
       const to = points[points.length - 1]
       result.push({
@@ -163,7 +187,7 @@ const toWorld = (e: MouseEvent): Point => {
 }
 
 const saveMouse = (e: MouseEvent) => {
-  // окно ввода на странице и его размер
+  // Окно ввода на странице и его размер
   const rect = screenView.value!.getBoundingClientRect()
   mouse.x = e.clientX - rect.left
   mouse.y = e.clientY - rect.top
@@ -174,8 +198,30 @@ const resetMouse = () => {
   mouse.inside = false
 }
 
-const moveSelected = (e: MouseEvent) => {
+const handleContextMenu = (e: MouseEvent) => {
+  if (buildingType.value) {
+    store.dispatch('game/cancelBuilding')
+    return
+  }
   store.dispatch('game/moveSelected', toWorld(e))
+}
+
+const placeBuilding = (e: MouseEvent) => {
+  if (!buildingType.value) return
+  // Перехватываем клик до дочернего объекта и обработчика выделения
+  e.stopImmediatePropagation()
+  e.preventDefault()
+  selectStart = null
+  selectionBox.value = null
+  saveMouse(e)
+  store.dispatch('game/placeBuilding', toWorld(e))
+}
+
+const onKeyDown = (e: KeyboardEvent) => {
+  if (e.code === 'Escape' && buildingType.value) {
+    e.preventDefault()
+    store.dispatch('game/cancelBuilding')
+  }
 }
 
 const clampCamera = () => {
@@ -204,12 +250,12 @@ const getSelectionBox = (start: Point): Box => ({
   height: Math.abs(mouse.y - start.y),
 })
 
-// рамка считается рамкой, только если мышь заметно сдвинули, иначе это обычный клик
+// Рамка считается рамкой, только если мышь заметно сдвинули, иначе это обычный клик
 const isBigEnough = (box: Box) => box.width > MIN_SELECTION_PX || box.height > MIN_SELECTION_PX
 
-// левая кнопка на пустом месте: начинаем тянуть рамку (клик по объекту сюда не доходит, там stop)
+// Левая кнопка на пустом месте: начинаем тянуть рамку (клик по объекту сюда не доходит, там stop)
 const startSelect = (e: MouseEvent) => {
-  // в меню и после конца игры рамку не рисуем
+  // В меню и после конца игры рамку не рисуем
   if (!isRunning.value) {
     return
   }
@@ -218,7 +264,7 @@ const startSelect = (e: MouseEvent) => {
   selectAdditive = e.shiftKey
 }
 
-// раз в кадр обновляем рамку на экране
+// Раз в кадр обновляем рамку на экране
 const updateSelectionBox = () => {
   if (!selectStart) {
     return
@@ -236,7 +282,7 @@ const finishSelect = () => {
   selectionBox.value = null
 
   if (!isBigEnough(box)) {
-    // клик с shift по пустому месту не сбрасывает выбор
+    // Клик с shift по пустому месту не сбрасывает выбор
     if (!selectAdditive) {
       select(null)
     }
@@ -273,7 +319,7 @@ const onWindowMouseUp = (e: MouseEvent) => {
     finishSelect()
   }
   if (e.button === 1) {
-    // применяем сдвиг, накопленный после последнего кадра
+    // Применяем сдвиг, накопленный после последнего кадра
     dragCamera()
     dragging = false
   }
@@ -335,19 +381,23 @@ const tick = (time: number) => {
   frameId = requestAnimationFrame(tick)
 }
 
-// компонент появился на странице - запускаем игровой цикл
+// Компонент появился на странице - запускаем игровой цикл
 onMounted(() => {
+  resizeObserver.observe(screenView.value!)
   lastTime = performance.now()
   frameId = requestAnimationFrame(tick)
   window.addEventListener('mousemove', onWindowMouseMove)
   window.addEventListener('mouseup', onWindowMouseUp)
+  window.addEventListener('keydown', onKeyDown)
 })
 
-// если ушли со страницы игры - останавливаем цикл
+// Если ушли со страницы игры - останавливаем цикл
 onUnmounted(() => {
+  resizeObserver.disconnect()
   cancelAnimationFrame(frameId)
   window.removeEventListener('mousemove', onWindowMouseMove)
   window.removeEventListener('mouseup', onWindowMouseUp)
+  window.removeEventListener('keydown', onKeyDown)
 })
 </script>
 
@@ -362,7 +412,7 @@ onUnmounted(() => {
 }
 
 .screen-view--paused :deep(*) {
-  // на паузе анимация стоит
+  // На паузе анимация стоит
   animation-play-state: paused !important;
 }
 
@@ -376,7 +426,7 @@ onUnmounted(() => {
 
 .ground {
   position: absolute;
-  // ромбовидная карта: поворот на 45 градусов и сжатие по вертикали на 0.5
+  // Ромбовидная карта: поворот на 45 градусов и сжатие по вертикали на 0.5
   transform: scaleY(0.5) rotate(45deg);
   background-color: #4a7c3a;
   background-image:
@@ -390,7 +440,7 @@ onUnmounted(() => {
   z-index: 0;
 }
 
-// уничтожение: объект сжимается к основанию и исчезает
+// Уничтожение: объект сжимается к основанию и исчезает
 .destroy-leave-active {
   animation: destroy 0.4s ease-in forwards;
   transform-origin: bottom center;

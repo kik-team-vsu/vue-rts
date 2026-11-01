@@ -1,15 +1,19 @@
-import type { BuildingType, Command, ObjectType, StaticObject, Unit, UnitType } from './types'
+import type { BuildingType, Command, ObjectType, StaticObject, TerrainZone, Unit, UnitType } from './types'
 
-// размер карты и cell - размер ячейики сетки в пикселях
+// Размер карты и ячейки сетки в пикселях
 export const MAP = { width: 3000, height: 3000, cell: 50 }
 
-// edgePx - зона у края экрана, где камера начинает двигаться
+// Зоны местности заполняются настройками карты
+export const TERRAIN_ZONES: TerrainZone[] = []
+
+// Камера начинает двигаться в пределах edgePx от края экрана
 export const CAMERA = { speedPxPerSecond: 500, edgePx: 80 }
 
-// размер в пикселях по размеру в клетках
+// Размер в пикселях по размеру в клетках
 const cells = (count: number) => count * MAP.cell
 
 export const OBJECT_TYPES: Record<string, ObjectType | BuildingType> = {
+  tower: { name: 'Башня', width: cells(1), height: cells(1), color: '#78716c', wallHeight: 70, roofHeight: 12, roofType: 'battlements', size: 1, maxHp: 150 },
   house: { name: 'Дом', width: cells(2), height: cells(2), color: '#a16207', wallHeight: 50, roofHeight: 40, roofColor: '#b91c1c', size: 2, maxHp: 200 },
   tree: { name: 'Дерево', width: 10, height: 10, color: '#7c4a1e', wallHeight: 80, branchColor: '#16a34a' },
   castle: { name: 'Замок', width: cells(4), height: cells(4), color: '#6b7280', wallHeight: 110, roofHeight: 18, roofType: 'battlements', size: 4, maxHp: 500 },
@@ -20,10 +24,10 @@ export const UNIT_TYPES: Record<string, UnitType> = {
   warrior: { name: 'Воин', width: 32, height: 52, color: '#ff0000', speedPxPerSecond: 150, maxHp: 100, strength: 15, attackSpeed: 1.5 },
 }
 
-// цвета групп
+// Цвета групп
 const GROUP_PALETTE = ['#2563eb', '#dc2626', '#9333ea', '#ea580c', '#0891b2', '#db2777']
 
-// цвет группы; у нейтральных (группа 0) цвета нет, берём чёрный
+// Цвет группы; у нейтральных (группа 0) цвета нет, берём чёрный
 export const groupColor = (group: number) => {
   if (group <= 0) {
     return '#000'
@@ -31,10 +35,10 @@ export const groupColor = (group: number) => {
   return GROUP_PALETTE[(group - 1) % GROUP_PALETTE.length]
 }
 
-// группа игрока, остальные группы - враги
+// Группа игрока, остальные группы - враги
 export const PLAYER_GROUP = 1
 
-// group: 0 - нейтральные, 1 и 2 - разные группы; hp здания равен maxHp его типа
+// Группы: 0 - нейтральные, 1 и 2 - игроки; hp здания равен maxHp его типа
 export const START_OBJECTS: StaticObject[] = [
   { id: 1, type: 'house', group: 1, hp: 200, position: { x: -200, y: -150 } },
   { id: 2, type: 'house', group: 2, hp: 200, position: { x: 350, y: 250 } },
@@ -52,7 +56,7 @@ export const START_UNITS: Unit[] = [
   { id: 11, type: 'warrior', group: 2, hp: UNIT_TYPES.warrior.maxHp, position: { x: 100, y: 100 }, target: null },
 ]
 
-// кнопки панели, action вызывается из стора
+// Кнопки панели, action вызывается из стора
 export const COMMANDS: Record<string, Command> = {
   destroy: { id: 'destroy', label: 'Самоуничтожение', action: 'game/destroySelectedUnits' },
 }

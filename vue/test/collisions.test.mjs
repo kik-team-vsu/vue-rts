@@ -11,7 +11,7 @@ const server = await createServer({
   root: fileURLToPath(new URL('../', import.meta.url)),
   cacheDir: fileURLToPath(new URL('../node_modules/.vite-test', import.meta.url)),
   resolve: { alias: { '@': fileURLToPath(new URL('../src', import.meta.url)) } },
-  server: { middlewareMode: true, hmr: false },
+  server: { middlewareMode: true, hmr: false, ws: false },
   optimizeDeps: { noDiscovery: true, include: [] },
   appType: 'custom',
   logLevel: 'error',
