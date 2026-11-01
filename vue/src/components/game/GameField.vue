@@ -17,7 +17,7 @@
           v-for="(zone, index) in TERRAIN_ZONES"
           :key="'terrain-' + index"
           class="terrain-zone"
-          :class="'terrain-zone--' + zone.type"
+          :class="zoneClass(zone)"
           :style="zoneStyle(zone)" />
 
       <div class="objects-layer">
@@ -126,6 +126,13 @@ const zoneStyle = (zone: TerrainZone) => ({
   width: zone.width + 'px',
   height: zone.height + 'px',
 })
+
+// класс зоны: у реки течение вдоль длинной стороны зоны,
+// узкая и высокая зона получает плитку с вертикальным течением
+const zoneClass = (zone: TerrainZone) =>
+  zone.type === 'river' && zone.height > zone.width
+    ? 'terrain-zone--river-v'
+    : 'terrain-zone--' + zone.type
 
 const orders = computed(() => {
   const result = []
@@ -421,6 +428,18 @@ onUnmounted(() => {
   &--river {
     background-color: #2563eb;
     background-image: url('../../assets/river.svg');
+  }
+
+  // вертикальная река: та же плитка, течение вдоль оси y
+  &--river-v {
+    background-color: #2563eb;
+    background-image: url('../../assets/river-vertical.svg');
+  }
+
+  // песок: декоративный берег, проходим как суша
+  &--sand {
+    background-color: #cfb684;
+    background-image: url('../../assets/sand.svg');
   }
 
   // горы: плитка прозрачна, фона у зоны нет - только пики поверх травы

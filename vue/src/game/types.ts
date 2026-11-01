@@ -6,8 +6,8 @@ export interface Point {
 // тип местности; горы непроходимы для всех юнитов
 export type TerrainType = 'land' | 'water' | 'mountain'
 
-// тип зоны на карте: озеро и река (оба - вода для юнитов) или горы
-export type TerrainZoneType = 'lake' | 'river' | 'mountain'
+// тип зоны на карте: озеро и река (оба - вода для юнитов), песок (проходимая суша) или горы
+export type TerrainZoneType = 'lake' | 'river' | 'sand' | 'mountain'
 
 // прямоугольная зона местности в мировых координатах, x и y - левый верхний угол
 export interface TerrainZone {

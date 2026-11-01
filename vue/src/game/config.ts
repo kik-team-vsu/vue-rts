@@ -3,9 +3,9 @@ import type { BuildingType, Command, ObjectType, StaticObject, TerrainZone, Unit
 // размер карты и cell - размер ячейики сетки в пикселях
 export const MAP = { width: 3000, height: 3000, cell: 50 }
 
-// зоны местности: озеро и река - вода, всё вне зон - суша; зоны не пересекаются.
-// Река идёт через середину карты, в центре (x от -125 до 125) - переправа по суше,
-// озеро примыкает к реке с севера.
+// зоны местности: озеро и река - вода, песок - проходимый берег, всё вне зон - суша;
+// зоны не пересекаются. У реки течение вдоль длинной стороны зоны:
+// узкая и высокая зона даст вертикальную реку.
 // Зона в мировых координатах, x и y - левый верхний угол
 export const TERRAIN_ZONES: TerrainZone[] = [
   { type: 'river', x: -1500, y: 350, width: 1375, height: 200 },
@@ -54,6 +54,7 @@ export const START_OBJECTS: StaticObject[] = [
   { id: 4, type: 'tree', group: 0, position: { x: -550, y: 250 } },
   { id: 5, type: 'tree', group: 0, position: { x: 550, y: -150 } },
   { id: 6, type: 'castle', group: 1, hp: 500, position: { x: -900, y: -200 } },
+  { id: 14, type: 'castle', group: 2, hp: 500, position: { x: 600, y: 300 } },
 ]
 
 export const START_UNITS: Unit[] = [
@@ -62,7 +63,8 @@ export const START_UNITS: Unit[] = [
   { id: 9, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -600, y: 120 }, target: null },
   { id: 10, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -650, y: -150 }, target: null },
   { id: 11, type: 'warrior', group: 2, hp: UNIT_TYPES.warrior.maxHp, position: { x: 100, y: 100 }, target: null },
-  { id: 12, type: 'boat', group: 1, hp: UNIT_TYPES.boat.maxHp, position: { x: 900, y: -100 }, target: null },
+  { id: 12, type: 'warrior', group: 2, hp: UNIT_TYPES.warrior.maxHp, position: { x: 200, y: 300 }, target: null },
+  { id: 13, type: 'boat', group: 1, hp: UNIT_TYPES.boat.maxHp, position: { x: 900, y: -100 }, target: null },
 ]
 
 // кнопки панели, action вызывается из стора
