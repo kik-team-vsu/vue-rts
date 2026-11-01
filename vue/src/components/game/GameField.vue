@@ -411,11 +411,19 @@ onUnmounted(() => {
   // как у .ground: ромбовидная зона в изометрии
   transform: scaleY(0.5) rotate(45deg);
 
-  &--water {
+  // озеро: спокойная глубокая вода
+  &--lake {
     background-color: #2563eb;
-    background-image: url('../../assets/water.svg');
+    background-image: url('../../assets/lake.svg');
   }
 
+  // река: та же вода, но плитка с полосами течения
+  &--river {
+    background-color: #2563eb;
+    background-image: url('../../assets/river.svg');
+  }
+
+  // горы: плитка прозрачна, фона у зоны нет - только пики поверх травы
   &--mountain {
     background-color: #78716c;
     background-image: url('../../assets/mountain.svg');

@@ -3,11 +3,15 @@ import type { BuildingType, Command, ObjectType, StaticObject, TerrainZone, Unit
 // размер карты и cell - размер ячейики сетки в пикселях
 export const MAP = { width: 3000, height: 3000, cell: 50 }
 
-// зоны местности: вода и горы, всё вне зон - суша; зоны не пересекаются.
+// зоны местности: озеро и река - вода, всё вне зон - суша; зоны не пересекаются.
+// Река идёт через середину карты, в центре (x от -125 до 125) - переправа по суше,
+// озеро примыкает к реке с севера.
 // Зона в мировых координатах, x и y - левый верхний угол
 export const TERRAIN_ZONES: TerrainZone[] = [
-  { type: 'water', x: 700, y: -250, width: 500, height: 500 },
-  { type: 'mountain', x: -300, y: -800, width: 500, height: 250 },
+  { type: 'river', x: -1500, y: 350, width: 1375, height: 200 },
+  { type: 'river', x: -200, y: -900, width: 200, height: 1375 },
+  { type: 'lake', x: 700, y: -350, width: 500, height: 500 },
+  { type: 'mountain', x: -250, y: -850, width: 500, height: 500 },
 ]
 
 // edgePx - зона у края экрана, где камера начинает двигаться
@@ -44,21 +48,21 @@ export const PLAYER_GROUP = 1
 
 // group: 0 - нейтральные, 1 и 2 - разные группы; hp здания равен maxHp его типа
 export const START_OBJECTS: StaticObject[] = [
-  { id: 1, type: 'house', group: 1, hp: 200, position: { x: -200, y: -150 } },
-  { id: 2, type: 'house', group: 2, hp: 200, position: { x: 350, y: 250 } },
+  { id: 1, type: 'house', group: 1, hp: 200, position: { x: -800, y: 100 } },
+  { id: 2, type: 'house', group: 2, hp: 200, position: { x: 350, y: 550 } },
   { id: 3, type: 'tree', group: 0, position: { x: 150, y: -300 } },
-  { id: 4, type: 'tree', group: 0, position: { x: -350, y: 250 } },
+  { id: 4, type: 'tree', group: 0, position: { x: -550, y: 250 } },
   { id: 5, type: 'tree', group: 0, position: { x: 550, y: -150 } },
-  { id: 6, type: 'castle', group: 1, hp: 500, position: { x: -550, y: -200 } },
+  { id: 6, type: 'castle', group: 1, hp: 500, position: { x: -900, y: -200 } },
 ]
 
 export const START_UNITS: Unit[] = [
-  { id: 7, type: 'worker', group: 1, hp: UNIT_TYPES.worker.maxHp, position: { x: 0, y: 0 }, target: null },
+  { id: 7, type: 'worker', group: 1, hp: UNIT_TYPES.worker.maxHp, position: { x: -650, y: 0 }, target: null },
   { id: 8, type: 'worker', group: 2, hp: UNIT_TYPES.worker.maxHp, position: { x: 60, y: 40 }, target: null },
-  { id: 9, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -100, y: 120 }, target: null },
-  { id: 10, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -150, y: 80 }, target: null },
+  { id: 9, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -600, y: 120 }, target: null },
+  { id: 10, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -650, y: -150 }, target: null },
   { id: 11, type: 'warrior', group: 2, hp: UNIT_TYPES.warrior.maxHp, position: { x: 100, y: 100 }, target: null },
-  { id: 12, type: 'boat', group: 1, hp: UNIT_TYPES.boat.maxHp, position: { x: 800, y: 1000 }, target: null },
+  { id: 12, type: 'boat', group: 1, hp: UNIT_TYPES.boat.maxHp, position: { x: 900, y: -100 }, target: null },
 ]
 
 // кнопки панели, action вызывается из стора
