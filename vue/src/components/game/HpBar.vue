@@ -6,7 +6,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { GROUP_COLORS } from '@/game/config'
+import { groupColor } from '@/game/config'
 
 // полоска жизней над объектом, рамка - цвет группы
 // offset - на сколько пикселей объект поднимается над точкой привязки (стены + крыша у зданий)
@@ -24,7 +24,7 @@ const ratio = computed(() => Math.max(0, Math.min(1, props.hp / props.maxHp)))
 const barStyle = computed(() => ({
   top: -props.offset - 14 + 'px',
   width: props.width + 'px',
-  borderColor: GROUP_COLORS[props.group] ?? '#000',
+  borderColor: groupColor(props.group),
 }))
 
 const fillStyle = computed(() => {
