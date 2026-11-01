@@ -15,7 +15,7 @@ export interface ObjectType {
   branchColor?: string   // цвет веток (если применим)
 }
 
-// здание: квадрат size × size клеток
+// Здание: квадрат size × size клеток
 export interface BuildingType extends ObjectType {
   size: number // сторона квадрата в клетках сетки
   maxHp: number
@@ -28,7 +28,7 @@ export interface UnitType extends ObjectType {
   attackSpeed: number // ударов в секунду
 }
 
-// любой игровой объект
+// Любой игровой объект
 export interface GameObject {
   id: number
   type: string
@@ -36,28 +36,29 @@ export interface GameObject {
   group: number // 0 - нейтральный объект (например, дерево), 1, 2, 3... - группы игроков
 }
 
-// статичный объект на карте
+// Статичный объект на карте
 export interface StaticObject extends GameObject {
   type: string // из OBJECT_TYPES
   hp?: number // только у зданий
 }
 
-// движущийся объект (юнит)
+// Движущийся объект (юнит)
 export interface Unit extends GameObject {
   type: string // из UNIT_TYPES
   hp: number
   target: Point | null // целевая точка при перемещении, null у стоящего объекта
   path?: Point[] | null // точки пути в обход препятствий, последняя совпадает с target
+  blockedFor?: number // время ожидания до повторного поиска пути, секунды
 }
 
-// событие сценария: в момент at (секунды) юнит идёт в точку target
+// Событие сценария: в момент at (секунды) юнит идёт в точку target
 export interface ScenarioEvent {
   at: number
   unitId: number
   target: Point
 }
 
-// сценарий: расстановка на старте и события по времени
+// Сценарий: расстановка на старте и события по времени
 export interface Scenario {
   id: string
   name: string
@@ -66,7 +67,7 @@ export interface Scenario {
   events: ScenarioEvent[]
 }
 
-// кнопка в панели команд
+// Кнопка в панели команд
 export interface Command {
   id: string
   label: string

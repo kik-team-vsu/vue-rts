@@ -21,20 +21,20 @@ import HpBar from './HpBar.vue'
 import { depthZIndex, worldToScreen } from '@/game/coords'
 import type { Unit, UnitType } from '@/game/types'
 
-// юнит: человечек из css-фигур, стоит ногами в точке position
+// Юнит: человечек из css-фигур, стоит ногами в точке position
 const props = defineProps<{
   unit: Unit
   type: UnitType
   selected: boolean
 }>()
 
-// событие для родителя (GameField): если на юнита кликнули, его надо выбрать
-// с зажатым shift юнит добавляется к выбору или убирается из него
+// Событие для родителя (GameField): если на юнита кликнули, его надо выбрать
+// С зажатым shift юнит добавляется к выбору или убирается из него
 const emit = defineEmits<{ select: [additive: boolean] }>()
 const pushEmit = (event: MouseEvent) => emit('select', event.shiftKey)
 
-// юнит идёт, пока у него есть цель: тогда включается анимация рук и ног
-const walking = computed(() => props.unit.target !== null)
+// Ожидание свободного пути сохраняет цель, но не включает анимацию ходьбы
+const walking = computed(() => !!props.unit.target && !!props.unit.path?.length && !props.unit.blockedFor)
 
 const style = computed(() => {
   const point = worldToScreen(props.unit.position)
@@ -91,7 +91,7 @@ const style = computed(() => {
   }
 }
 
-// руки юнитлов = палки от плеч
+// Руки вращаются вокруг плеч
 .arm {
   position: absolute;
   top: 34%;
@@ -101,7 +101,6 @@ const style = computed(() => {
   background: #000;
   transform-origin: top center;
 
-  // руки машут
   &.left {
     left: 0;
     transform: rotate(25deg);
@@ -121,7 +120,7 @@ const style = computed(() => {
   }
 }
 
-// ходьба из двух кадров
+// Ходьба из двух кадров
 .walking > .leg,
 .walking > .arm {
   animation: walk 0.4s steps(1) infinite;
