@@ -215,17 +215,17 @@ export default {
       const columns = Math.ceil(Math.sqrt(units.length))
       const rows = Math.ceil(units.length / columns)
       units.forEach((unit, index) => {
-        // 1. On cherche si on a cliqué sur une unité à cet endroit
+        // 1. Проверяем, попал ли клик по какому-нибудь юниту
         const clickedUnit = store.state.units.find(u => 
           Math.abs(u.position.x - point.x) < 20 && Math.abs(u.position.y - point.y) < 20
         );
         
-        // 2. Si on a cliqué sur une unité et qu'elle est ennemie
+        // 2. Если клик попал по юниту и он вражеский
         if (clickedUnit && clickedUnit.group !== unit.group) {
-           // On lance l'attaque
+           // отдаём приказ на атаку
            store.dispatch('attackUnit', { attackerId: unit.id, targetId: clickedUnit.id });
         } else {
-           // 3. Sinon, on fait le déplacement normal
+           // 3. Иначе — обычное перемещение строем
            const column = index % columns
            const row = Math.floor(index / columns)
            store.commit(MUTATIONS.SET_UNIT_TARGET, {
@@ -236,29 +236,28 @@ export default {
               })
            })
         }
-      }) // <-- Cette accolade ferme le units.forEach
+      })
     },
     // уничтожить объект по id
     destroyObject: (store, id) => {
       store.commit(MUTATIONS.REMOVE_OBJECT, id)
     },
-        // --- DÉBUT DE VOTRE CODE D'ATTAQUE ---
+    // приказ юниту атаковать цель
     attackUnit: (store, { attackerId, targetId }) => {
       const attacker = store.state.units.find(u => u.id === attackerId);
       const target = store.state.units.find(u => u.id === targetId);
       
       if (attacker && target) {
-        // On donne l'ordre à l'unité d'aller vers la cible
-        // (Elle utilisera le pathfinding existant pour s'en approcher)
+        // отдаём юниту приказ идти к цели
+        // (для сближения используется существующий поиск пути)
         store.commit(MUTATIONS.SET_UNIT_TARGET, {
           id: attackerId,
           target: { x: target.position.x, y: target.position.y },
-          targetId: targetId, // On sauvegarde l'ID pour savoir qui attaquer
-          isAttacking: true   // Un petit drapeau pour dire "je suis en mode attaque"
+          targetId: targetId, // сохраняем id цели, чтобы знать, кого атаковать
+          isAttacking: true   // флаг "юнит в режиме атаки"
         });
       }
     },
-    // --- FIN DE VOTRE CODE D'ATTAQUE ---
     // удаляем объекты у которых hp <= 0
     removeDead: (store) => {
       if (!store.getters.isRunning || store.state.paused) {
@@ -301,7 +300,7 @@ export default {
            if (store.state.units.some((u) => u.target)) {
         store.commit(MUTATIONS.MOVE_UNITS, secondsPassed)
 
-        // --- DÉBUT DE LA LOGIQUE DE DÉGÂTS ---
+        // логика нанесения урона
         store.state.units.forEach(unit => {
           if (unit.isAttacking && unit.targetId) {
             const target = store.state.units.find(u => u.id === unit.targetId);
@@ -310,10 +309,10 @@ export default {
               const dist = Math.hypot(unit.position.x - target.position.x, unit.position.y - target.position.y);
               
               if (dist < 50) {
-                // On retire des dégâts
+                // наносим урон
                 target.hp -= 10 * secondsPassed;
-                
-                // Si l'ennemi est mort, on le détruit
+
+                // если враг погиб — уничтожаем его
                 if (target.hp <= 0) {
                   store.dispatch('destroyObject', target.id);
                   unit.isAttacking = false;
@@ -322,9 +321,8 @@ export default {
               }
             }
           }
-        }); // Ferme le forEach
-        // --- FIN DE LA LOGIQUE DE DÉGÂTS ---
-      } // Ferme le if (some)
-    }, // Ferme la fonction moveUnits
-  }, // Ferme actions
-}; // Ferme export default
+        })
+      }
+    },
+  },
+}
