@@ -3,15 +3,36 @@ import type { BuildingType, Command, ObjectType, StaticObject, TerrainZone, Unit
 // размер карты и cell - размер ячейики сетки в пикселях
 export const MAP = { width: 3000, height: 3000, cell: 50 }
 
-// зоны местности: озеро и река - вода, песок - проходимый берег, всё вне зон - суша;
-// зоны не пересекаются. У реки течение вдоль длинной стороны зоны:
-// узкая и высокая зона даст вертикальную реку.
+// ширина песчаного берега: узкая полоса вдоль каждого водоёма
+export const SAND_WIDTH = 22
+
+// водоёмы карты: озеро и две реки. У реки течение вдоль длинной стороны зоны:
+// узкая и высокая зона получит плитку с вертикальным течением.
+// Водоёмы держим в стороне от центральной игровой зоны: там спавны армий и бой.
 // Зона в мировых координатах, x и y - левый верхний угол
+const WATER_ZONES: TerrainZone[] = [
+  { type: 'river', x: -1500, y: 1000, width: 1200, height: 200 },
+  { type: 'river', x: -1450, y: -1450, width: 200, height: 2900 },
+  { type: 'lake', x: 600, y: -700, width: 500, height: 450 },
+]
+
+// Песчаная подложка: прямоугольник водоёма плюс узкая полоса по каждой стороне.
+// Подложка рисуется под водой, поэтому песок виден ровно по краям водоёма.
+// Края обрезаем по карте: за её пределами зоны были бы видны мимо ромба.
+const shoreOf = (water: TerrainZone, width: number): TerrainZone => {
+  const left = Math.max(-MAP.width / 2, water.x - width)
+  const top = Math.max(-MAP.height / 2, water.y - width)
+  const right = Math.min(MAP.width / 2, water.x + water.width + width)
+  const bottom = Math.min(MAP.height / 2, water.y + water.height + width)
+  return { type: 'sand', x: left, y: top, width: right - left, height: bottom - top }
+}
+
+// зоны местности: песок - проходимый берег, озеро и реки - вода, горы - непроходимы, всё вне зон - суша.
+// Порядок - порядок отрисовки: сначала песок, вода и горы закрывают его середину.
 export const TERRAIN_ZONES: TerrainZone[] = [
-  { type: 'river', x: -1500, y: 350, width: 1375, height: 200 },
-  { type: 'river', x: -200, y: -900, width: 200, height: 1375 },
-  { type: 'lake', x: 700, y: -350, width: 500, height: 500 },
-  { type: 'mountain', x: -250, y: -850, width: 500, height: 500 },
+  ...WATER_ZONES.map((water) => shoreOf(water, SAND_WIDTH)),
+  ...WATER_ZONES,
+  { type: 'mountain', x: 900, y: -1450, width: 500, height: 500 },
 ]
 
 // edgePx - зона у края экрана, где камера начинает двигаться
@@ -64,7 +85,7 @@ export const START_UNITS: Unit[] = [
   { id: 10, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -650, y: -150 }, target: null },
   { id: 11, type: 'warrior', group: 2, hp: UNIT_TYPES.warrior.maxHp, position: { x: 100, y: 100 }, target: null },
   { id: 12, type: 'warrior', group: 2, hp: UNIT_TYPES.warrior.maxHp, position: { x: 200, y: 300 }, target: null },
-  { id: 13, type: 'boat', group: 1, hp: UNIT_TYPES.boat.maxHp, position: { x: 900, y: -100 }, target: null },
+  { id: 13, type: 'boat', group: 1, hp: UNIT_TYPES.boat.maxHp, position: { x: 850, y: -475 }, target: null },
 ]
 
 // кнопки панели, action вызывается из стора

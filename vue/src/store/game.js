@@ -2,6 +2,11 @@ import { OBJECT_TYPES, PLAYER_GROUP, START_OBJECTS, START_UNITS, UNIT_TYPES } fr
 import { SCENARIOS } from '@/game/scenarios'
 import { advanceUnits, clampUnitTarget, orderUnit } from '@/game/movement'
 import { isAreaFree, staticFootprint, unitFootprint } from '@/game/spatial'
+import { isFootprintTerrainPassable } from '@/game/terrain'
+
+// новая постройка ставится только на сушу, новый юнит - только на свою местность
+const fitsTerrain = (kind, object, area) =>
+  isFootprintTerrainPassable(area, kind === 'unit' ? UNIT_TYPES[object.type].terrain : 'land')
 
 const MUTATIONS = {
   SET_SELECTED_IDS: 'SET_SELECTED_IDS',
@@ -23,12 +28,13 @@ const canAddObject = (state, { kind, object }) => {
   // ID общий для юнитов и статичных объектов
   if ([...state.objects, ...state.units].some((item) => item.id === object.id)) return false
   if (kind === 'unit' && Object.hasOwn(UNIT_TYPES, object.type)) {
-    return Number.isFinite(object.hp) && object.hp > 0 && isAreaFree(state, unitFootprint(object))
+    return Number.isFinite(object.hp) && object.hp > 0 && isAreaFree(state, unitFootprint(object)) &&
+      fitsTerrain(kind, object, unitFootprint(object))
   }
   if (kind === 'static' && Object.hasOwn(OBJECT_TYPES, object.type)) {
     const type = OBJECT_TYPES[object.type]
     return (!('maxHp' in type) || (Number.isFinite(object.hp) && object.hp > 0)) &&
-      isAreaFree(state, staticFootprint(object))
+      isAreaFree(state, staticFootprint(object)) && fitsTerrain(kind, object, staticFootprint(object))
   }
   return false
 }

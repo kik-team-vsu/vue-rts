@@ -8,7 +8,7 @@ export const THREE_SIDES: Scenario = {
     objects: [
         makeBuilding(1, 'house', 1, -400, 0),
         makeBuilding(2, 'house', 2, 400, 0),
-        makeBuilding(3, 'house', 3, 0, -250),
+        makeBuilding(3, 'house', 3, 0, -400),
         { id: 4, type: 'tree', group: 0, position: { x: 0, y: 0 } },
     ],
     units: [

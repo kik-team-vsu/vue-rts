@@ -9,11 +9,14 @@ const REPATH_SECONDS = 0.25
 const MAX_FRAME_SECONDS = 0.1
 const margin = (unit: Unit) => unitFootprint(unit).halfWidth
 
+// местность юнита: по ней проходимость проверяют и движение, и поиск пути
+const terrainOf = (unit: Unit) => UNIT_TYPES[unit.type].terrain
+
 // Игровое состояние меняется внутри синхронных mutations Vuex
 export const orderUnit = (world: CollisionWorld, unit: Unit, target: Point, reserved: readonly Footprint[] = []) => {
   if (!Number.isFinite(target.x) || !Number.isFinite(target.y)) return
   const path = findPath(unit.position, target, world.objects, margin(unit), {
-    units: world.units, ignoreId: unit.id, reserved,
+    units: world.units, ignoreId: unit.id, reserved, terrain: terrainOf(unit),
   })
   unit.path = path.length ? path : null
   unit.target = path.length ? path[path.length - 1] : null
@@ -27,7 +30,7 @@ export const advanceUnits = (world: CollisionWorld, secondsPassed: number) => {
   for (const unit of [...world.units].sort((a, b) => a.id - b.id)) {
     if (!unit.target) continue
     let budget = UNIT_TYPES[unit.type].speedPxPerSecond * seconds
-    const options = { units: world.units, ignoreId: unit.id }
+    const options = { units: world.units, ignoreId: unit.id, terrain: terrainOf(unit) }
     if (!unit.path?.length) unit.path = [unit.target]
     // Остаток шага переносим на следующую точку пути в том же кадре
     while (budget > 0 && unit.path.length) {

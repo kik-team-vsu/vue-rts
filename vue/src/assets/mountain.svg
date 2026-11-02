@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="250" height="250">
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">
   <!--
     Одна гора «2.5D» — гладкая пирамида в технике зданий из GameStaticObject, со снежной вершиной.
     Текстура рисуется в координатах плоскости карты (div с transform: scaleY(0.5) rotate(45deg)),

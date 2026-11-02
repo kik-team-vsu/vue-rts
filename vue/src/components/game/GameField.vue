@@ -119,12 +119,15 @@ const groundStyle = {
   backgroundSize: `${MAP.cell}px ${MAP.cell}px, ${MAP.cell}px ${MAP.cell}px, 256px 256px`,
 }
 
-// зона местности в мировых координатах
+// зона местности в мировых координатах.
+// Точка поворота - центр карты (мировой ноль), как у .ground, иначе зона съедет:
+// в локальных координатах зоны мировой ноль лежит в (-zone.x, -zone.y)
 const zoneStyle = (zone: TerrainZone) => ({
   left: zone.x + 'px',
   top: zone.y + 'px',
   width: zone.width + 'px',
   height: zone.height + 'px',
+  transformOrigin: `${-zone.x}px ${-zone.y}px`,
 })
 
 // класс зоны: у реки течение вдоль длинной стороны зоны,
@@ -442,9 +445,8 @@ onUnmounted(() => {
     background-image: url('../../assets/sand.svg');
   }
 
-  // горы: плитка прозрачна, фона у зоны нет - только пики поверх травы
+  // горы: непроходимая скалистая местность с пиками
   &--mountain {
-    background-color: #78716c;
     background-image: url('../../assets/mountain.svg');
   }
 }

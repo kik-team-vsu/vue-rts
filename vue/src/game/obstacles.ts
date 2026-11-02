@@ -2,12 +2,16 @@ import { OBJECT_TYPES } from './config'
 import { ISO_SCALE } from './coords'
 import { isAreaFree, isSweepFree, squareFootprint } from './spatial'
 import type { CollisionOptions } from './spatial'
-import { isTerrainPassable } from './terrain'
+import { isFootprintTerrainPassable } from './terrain'
 import type { Point, StaticObject, TerrainType, Unit } from './types'
 
 export interface NavigationOptions extends CollisionOptions {
   units?: readonly Unit[]
+  terrain?: TerrainType | 'both' // где ходит юнит, undefined - по суше и воде
 }
+
+const isTerrainFree = (point: Point, margin: number, terrain?: TerrainType | 'both'): boolean =>
+  isFootprintTerrainPassable(squareFootprint(point, margin), terrain)
 
 // Область, где высокий объект закрывает юнита в изометрии
 const isHidden = (point: Point, objects: readonly StaticObject[], margin: number): boolean =>
@@ -26,11 +30,12 @@ const isHidden = (point: Point, objects: readonly StaticObject[], margin: number
     return tMin < tMax
   })
 
-// Навигация учитывает основание объекта и зону визуального перекрытия
+// Навигация учитывает основание объекта, тип местности юнита и зону визуального перекрытия
 export const isBlocked = (
   point: Point, objects: readonly StaticObject[], margin: number, options: NavigationOptions = {},
 ): boolean => !isAreaFree({ objects, units: options.units ?? [] }, squareFootprint(point, margin), options) ||
-  isHidden(point, objects, margin)
+  isHidden(point, objects, margin) ||
+  !isTerrainFree(point, margin, options.terrain)
 
 export const isSegmentFree = (
   from: Point, to: Point, objects: readonly StaticObject[], margin: number, options: NavigationOptions = {},
@@ -42,7 +47,9 @@ export const isSegmentFree = (
   let leaving = isHidden(from, objects, margin)
   for (let i = 1; i <= count; i++) {
     const t = i / count
-    const hidden = isHidden({ x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }, objects, margin)
+    const point = { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }
+    if (!isTerrainFree(point, margin, options.terrain)) return false
+    const hidden = isHidden(point, objects, margin)
     if (hidden && !leaving) return false
     if (!hidden) leaving = false
   }
