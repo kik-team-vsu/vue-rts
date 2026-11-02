@@ -20,9 +20,15 @@ export const UNIT_TYPES: Record<string, UnitType> = {
   warrior: { name: 'Воин', width: 32, height: 52, color: '#ff0000', speedPxPerSecond: 150, maxHp: 100, strength: 15, attackSpeed: 1.5 },
 }
 
-export const GROUP_COLORS: Record<number, string> = {
-  1: '#2563eb',
-  2: '#dc2626',
+// цвета групп
+const GROUP_PALETTE = ['#2563eb', '#dc2626', '#9333ea', '#ea580c', '#0891b2', '#db2777']
+
+// цвет группы; у нейтральных (группа 0) цвета нет, берём чёрный
+export const groupColor = (group: number) => {
+  if (group <= 0) {
+    return '#000'
+  }
+  return GROUP_PALETTE[(group - 1) % GROUP_PALETTE.length]
 }
 
 // группа игрока, остальные группы - враги

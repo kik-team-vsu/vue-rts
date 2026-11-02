@@ -13,13 +13,13 @@ const MUTATIONS = {
   LOAD_SCENARIO: 'LOAD_SCENARIO',
   OPEN_MENU: 'OPEN_MENU',
   RUN_SCENARIO_EVENTS: 'RUN_SCENARIO_EVENTS',
-  APPLY_DAMAGE: 'APPLY_DAMAGE', // <-- AJOUTÉ ICI
+  APPLY_DAMAGE: 'APPLY_DAMAGE',
 }
 
 const MIN_SLIDE = 0.01
 const FORMATION_STEP = 40
-const ATTACK_RANGE = 50 // <-- AJOUTÉ ICI (portée d'attaque)
-const CLICK_RADIUS = 20 // <-- AJOUTÉ ICI (rayon de clic)
+const ATTACK_RANGE = 50
+const CLICK_RADIUS = 20
 
 const unitMargin = (unit) => UNIT_TYPES[unit.type].width / 2
 
@@ -78,7 +78,7 @@ export default {
     [MUTATIONS.SET_SELECTED_IDS]: (state, ids) => {
       state.selectedIds = ids
     },
-    // Модифицировано для сохранения targetId и isAttacking
+    // Модифицировано для сохранения targetId и isAttacking (исправление ревью)
     [MUTATIONS.SET_UNIT_TARGET]: (state, { id, target, targetId, isAttacking }) => {
       const unit = state.units.find((u) => u.id === id)
       if (unit) {
@@ -87,7 +87,7 @@ export default {
         unit.isAttacking = isAttacking ?? false
       }
     },
-    // AJOUTÉ ICI : Mutation pour appliquer les dégâts
+    // Новая мутация для нанесения урона (исправление ревью)
     [MUTATIONS.APPLY_DAMAGE]: (state, { targetId, damage }) => {
       const target = state.units.find(u => u.id === targetId)
       if (target) {
@@ -228,18 +228,17 @@ export default {
       const columns = Math.ceil(Math.sqrt(units.length))
       const rows = Math.ceil(units.length / columns)
       
-      // Calculé une seule fois avant la boucle (Point 6 du review)
+      // Вычисляем кликнутого юнита один раз перед циклом
       const clickedUnit = store.state.units.find(u => 
         Math.abs(u.position.x - point.x) < CLICK_RADIUS && Math.abs(u.position.y - point.y) < CLICK_RADIUS
       );
 
       units.forEach((unit, index) => {
-        // Si on a cliqué sur une unité et qu'elle est ennemie
+        // Если кликнули по врагу - атакуем
         if (clickedUnit && clickedUnit.group !== unit.group) {
-           // On lance l'attaque
            store.dispatch('attackUnit', { attackerId: unit.id, targetId: clickedUnit.id });
         } else {
-           // Sinon, on fait le déplacement normal
+           // Иначе - обычное движение
            const column = index % columns
            const row = Math.floor(index / columns)
            store.commit(MUTATIONS.SET_UNIT_TARGET, {
@@ -256,13 +255,12 @@ export default {
     destroyObject: (store, id) => {
       store.commit(MUTATIONS.REMOVE_OBJECT, id)
     },
-    // Action d'attaque
+    // Логика атаки
     attackUnit: (store, { attackerId, targetId }) => {
       const attacker = store.state.units.find(u => u.id === attackerId);
       const target = store.state.units.find(u => u.id === targetId);
       
       if (attacker && target) {
-        // On donne l'ordre à l'unité d'aller vers la cible
         store.commit(MUTATIONS.SET_UNIT_TARGET, {
           id: attackerId,
           target: { x: target.position.x, y: target.position.y },
@@ -306,18 +304,18 @@ export default {
         store.commit(MUTATIONS.RUN_SCENARIO_EVENTS, secondsPassed)
       }
     },
-    // Logique de déplacement et de dégâts
+    // Движение и логика урона
     moveUnits: (store, secondsPassed) => {
       if (!store.state.started || store.state.paused || store.getters.isGameOver) {
         return
       }
 
-      // 1. Déplacement (seulement si quelqu'un a une cible)
+      // 1. Движение (только если есть цель)
       if (store.state.units.some((u) => u.target)) {
         store.commit(MUTATIONS.MOVE_UNITS, secondsPassed)
       }
 
-      // 2. Logique de dégâts (indépendante du déplacement)
+      // 2. Логика урона (не зависит от движения)
       store.state.units.forEach(unit => {
         if (unit.isAttacking && unit.targetId) {
           const target = store.state.units.find(u => u.id === unit.targetId);
@@ -337,7 +335,7 @@ export default {
               }
             }
           } else {
-            // La cible n'existe plus (morte entre temps), on réinitialise
+            // Цель исчезла (умерла), сбрасываем флаги
             unit.isAttacking = false;
             unit.targetId = null;
           }
