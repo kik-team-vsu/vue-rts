@@ -1,36 +1,31 @@
 import { MAP } from './config'
-import { isBlocked } from './obstacles'
+import { isBlocked, isSegmentFree } from './obstacles'
+import { COLLISION_EPSILON, findNearestFreePosition, SEARCH_STEP, squareFootprint } from './spatial'
+import type { NavigationOptions } from './obstacles'
 import type { Point, StaticObject } from './types'
 
-// Поиск пути в обход зданий: A* по сетке клеток, потом путь спрямляется.
-// Свободна ли точка, решает isBlocked, поэтому зона "за зданием" тоже обходится.
-
-const STEP = 25 // шаг сетки поиска, px
-const CHECK_STEP = 5 // шаг проверки отрезка на препятствия, px
+const STEP = SEARCH_STEP
 const COLS = Math.floor(MAP.width / STEP) + 1
 const ROWS = Math.floor(MAP.height / STEP) + 1
+const distance = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y)
 
-// клетка сетки хранится одним числом: row * COLS + col
+interface PathOptions extends NavigationOptions {
+  allowPartial?: boolean // разрешить остановку в ближайшем достижимом узле
+}
+
+// Узел сетки хранится числом: row * COLS + col
 const cellToPoint = (cell: number): Point => ({
   x: -MAP.width / 2 + (cell % COLS) * STEP,
   y: -MAP.height / 2 + Math.floor(cell / COLS) * STEP,
 })
 
-const pointToCell = (point: Point): number => {
-  const col = Math.min(COLS - 1, Math.max(0, Math.round((point.x + MAP.width / 2) / STEP)))
-  const row = Math.min(ROWS - 1, Math.max(0, Math.round((point.y + MAP.height / 2) / STEP)))
-  return row * COLS + col
-}
-
-// 8 соседних клеток, включая диагональные
 const neighbors = (cell: number): number[] => {
   const col = cell % COLS
   const row = Math.floor(cell / COLS)
   const result = []
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
-      const inside = col + dx >= 0 && col + dx < COLS && row + dy >= 0 && row + dy < ROWS
-      if ((dx !== 0 || dy !== 0) && inside) {
+      if ((dx || dy) && col + dx >= 0 && col + dx < COLS && row + dy >= 0 && row + dy < ROWS) {
         result.push(cell + dy * COLS + dx)
       }
     }
@@ -38,114 +33,133 @@ const neighbors = (cell: number): number[] => {
   return result
 }
 
-const distance = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y)
-
-// можно ли пройти по прямой из a в b; если a уже в запретной зоне, сначала даём из неё выйти
-const isSegmentFree = (a: Point, b: Point, objects: StaticObject[], margin: number): boolean => {
-  const count = Math.ceil(distance(a, b) / CHECK_STEP)
-  let leaving = isBlocked(a, objects, margin)
-  for (let i = 1; i <= count; i++) {
-    const t = i / count
-    const blocked = isBlocked({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, objects, margin)
-    if (blocked && !leaving) {
-      return false
-    }
-    if (!blocked) {
-      leaving = false
-    }
-  }
-  return true
+interface PathNode {
+  cell: number
+  cost: number // пройденное расстояние
+  priority: number // пройденное расстояние + оценка до цели
 }
 
-// спрямляем путь: из каждой точки идём сразу в самую дальнюю, которую видно по прямой
-const smoothPath = (from: Point, points: Point[], objects: StaticObject[], margin: number): Point[] => {
+// Двоичная куча: ближайший кандидат A* извлекается за O(log n)
+class PathQueue {
+  private items: PathNode[] = []
+
+  get length() { return this.items.length }
+
+  push(item: PathNode) {
+    let index = this.items.length
+    this.items.push(item)
+    while (index > 0) {
+      const parent = Math.floor((index - 1) / 2)
+      if (this.items[parent].priority <= item.priority) break
+      this.items[index] = this.items[parent]
+      index = parent
+    }
+    this.items[index] = item
+  }
+
+  pop() {
+    const first = this.items[0]
+    const last = this.items.pop()!
+    if (this.items.length) {
+      let index = 0
+      while (index * 2 + 1 < this.items.length) {
+        let child = index * 2 + 1
+        if (child + 1 < this.items.length && this.items[child + 1].priority < this.items[child].priority) child++
+        if (last.priority <= this.items[child].priority) break
+        this.items[index] = this.items[child]
+        index = child
+      }
+      this.items[index] = last
+    }
+    return first
+  }
+}
+
+// Убираем промежуточные точки, если участок можно пройти напрямую
+const smoothPath = (from: Point, points: Point[], free: (a: Point, b: Point) => boolean): Point[] => {
   const result: Point[] = []
   let anchor = from
-  let i = 0
-  while (i < points.length) {
-    let j = i
-    while (j + 1 < points.length && isSegmentFree(anchor, points[j + 1], objects, margin)) {
-      j++
-    }
-    result.push(points[j])
-    anchor = points[j]
-    i = j + 1
+  let index = 0
+  while (index < points.length) {
+    let next = index
+    while (next + 1 < points.length && free(anchor, points[next + 1])) next++
+    result.push(points[next])
+    anchor = points[next]
+    index = next + 1
   }
   return result
 }
 
-// цель внутри здания: сдвигаем её по прямой к юниту, пока не выйдет из здания
-const freeTarget = (from: Point, to: Point, objects: StaticObject[], margin: number): Point => {
-  const count = Math.ceil(distance(from, to) / CHECK_STEP)
-  for (let i = 0; i < count; i++) {
-    const t = i / count
-    const point = { x: to.x + (from.x - to.x) * t, y: to.y + (from.y - to.y) * t }
-    if (!isBlocked(point, objects, margin)) {
-      return point
-    }
-  }
-  return from
-}
+// A* по сетке 25 px использует ту же проверку отрезков, что движение
+export const findPath = (
+  from: Point, to: Point, objects: readonly StaticObject[], margin: number, options: PathOptions = {},
+): Point[] => {
+  const free = (a: Point, b: Point) => isSegmentFree(a, b, objects, margin, options)
+  if (!free(from, from)) return []
+  // Занятую цель заменяем ближайшей свободной точкой
+  const goal = findNearestFreePosition(
+    { objects, units: options.units ?? [] }, squareFootprint(to, margin),
+    { ...options, accept: (point) => !isBlocked(point, objects, margin, options) },
+  )
+  if (!goal || distance(from, goal) < COLLISION_EPSILON) return []
+  if (free(from, goal)) return [goal]
 
-// Путь из from в to в обход препятствий: список точек, последняя - куда юнит реально придёт.
-// Если to внутри препятствия или до неё не добраться, путь ведёт в ближайшую доступную точку.
-// Пустой список - идти некуда.
-export const findPath = (from: Point, to: Point, objects: StaticObject[], margin: number): Point[] => {
-  const goal = freeTarget(from, to, objects, margin)
-  if (isSegmentFree(from, goal, objects, margin)) {
-    return goal === from ? [] : [goal]
-  }
+  const cost = new Float64Array(COLS * ROWS).fill(Infinity)
+  const parent = new Int32Array(COLS * ROWS).fill(-1)
+  const closed = new Uint8Array(COLS * ROWS)
+  const open = new PathQueue()
 
-  // A*: из открытых клеток первой берём ту, через которую путь до цели обещает быть короче.
-  // cost - длина пути от старта до клетки, estimate - cost плюс расстояние от клетки до цели,
-  // parent - откуда в клетку пришли
-  const start = pointToCell(from)
-  const cost = new Array(COLS * ROWS).fill(Infinity)
-  const estimate = new Array(COLS * ROWS).fill(Infinity)
-  const parent = new Array(COLS * ROWS).fill(-1)
-  cost[start] = 0
-  const open = [start]
-  let best = start // достижимая клетка, ближайшая к цели
-  let reached = false // из best цель видна по прямой
-
-  while (open.length > 0 && !reached) {
-    let k = 0
-    for (let j = 1; j < open.length; j++) {
-      if (estimate[open[j]] < estimate[open[k]]) {
-        k = j
+  // Старт между узлами соединяем с сеткой только свободными отрезками
+  const col = Math.round((from.x + MAP.width / 2) / STEP)
+  const row = Math.round((from.y + MAP.height / 2) / STEP)
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (col + dx < 0 || col + dx >= COLS || row + dy < 0 || row + dy >= ROWS) continue
+      const cell = (row + dy) * COLS + col + dx
+      const point = cellToPoint(cell)
+      if (free(from, point)) {
+        cost[cell] = distance(from, point)
+        open.push({ cell, cost: cost[cell], priority: cost[cell] + distance(point, goal) })
       }
     }
-    const cell = open.splice(k, 1)[0]
+  }
+
+  let best = -1
+  let bestDistance = distance(from, goal)
+  let reached = false
+  while (open.length) {
+    const entry = open.pop()
+    const cell = entry.cell
+    // Более короткий путь мог добавить новую запись того же узла
+    if (closed[cell] || entry.cost !== cost[cell]) continue
+    closed[cell] = 1
     const point = cellToPoint(cell)
-    if (distance(point, goal) < distance(cellToPoint(best), goal)) {
+    const remaining = distance(point, goal)
+    if (remaining < bestDistance) {
       best = cell
+      bestDistance = remaining
     }
-    if (distance(point, goal) <= STEP && isSegmentFree(point, goal, objects, margin)) {
+    if (remaining <= STEP * Math.SQRT2 && free(point, goal)) {
       best = cell
       reached = true
+      break
     }
-    // в соседнюю клетку можно шагнуть, если отрезок до неё свободен
-    // (так не срезаем угол здания по диагонали и можем выйти из запретной зоны, если стоим в ней)
     for (const next of neighbors(cell)) {
+      if (closed[next]) continue
       const nextPoint = cellToPoint(next)
       const nextCost = cost[cell] + distance(point, nextPoint)
-      if (nextCost < cost[next] && isSegmentFree(point, nextPoint, objects, margin)) {
-        cost[next] = nextCost
-        // расстояние до цели чуть завышаем: поиск идёт прямее к цели и открывает меньше клеток
-        estimate[next] = nextCost + distance(nextPoint, goal) * 1.1
-        parent[next] = cell
-        open.push(next)
-      }
+      if (nextCost >= cost[next] || !free(point, nextPoint)) continue
+      cost[next] = nextCost
+      parent[next] = cell
+      open.push({ cell: next, cost: nextCost, priority: nextCost + distance(nextPoint, goal) })
     }
   }
 
-  // собираем путь от best назад к старту
+  // Для недостижимой цели возвращаем частичный путь, только если он разрешён
+  if (best === -1 || (!reached && options.allowPartial === false)) return []
   const points: Point[] = []
-  for (let cell = best; cell !== start; cell = parent[cell]) {
-    points.unshift(cellToPoint(cell))
-  }
-  if (reached) {
-    points.push(goal)
-  }
-  return smoothPath(from, points, objects, margin)
+  for (let cell = best; cell !== -1; cell = parent[cell]) points.push(cellToPoint(cell))
+  points.reverse()
+  if (reached) points.push(goal)
+  return smoothPath(from, points, free).filter((point) => distance(from, point) > COLLISION_EPSILON)
 }

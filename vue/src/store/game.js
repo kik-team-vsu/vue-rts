@@ -1,8 +1,7 @@
-import { PLAYER_GROUP, START_OBJECTS, START_UNITS, UNIT_TYPES } from '@/game/config'
+import { OBJECT_TYPES, PLAYER_GROUP, START_OBJECTS, START_UNITS, UNIT_TYPES } from '@/game/config'
 import { SCENARIOS } from '@/game/scenarios'
-import { clampToMap } from '@/game/coords'
-import { isBlocked } from '@/game/obstacles'
-import { findPath } from '@/game/pathfinding'
+import { advanceUnits, clampUnitTarget, orderUnit } from '@/game/movement'
+import { isAreaFree, staticFootprint, unitFootprint } from '@/game/spatial'
 
 const MUTATIONS = {
   SET_SELECTED_IDS: 'SET_SELECTED_IDS',
@@ -13,22 +12,28 @@ const MUTATIONS = {
   LOAD_SCENARIO: 'LOAD_SCENARIO',
   OPEN_MENU: 'OPEN_MENU',
   RUN_SCENARIO_EVENTS: 'RUN_SCENARIO_EVENTS',
+  ADD_OBJECT: 'ADD_OBJECT',
 }
 
-const MIN_SLIDE = 0.01
 const FORMATION_STEP = 40
 
-const unitMargin = (unit) => UNIT_TYPES[unit.type].width / 2
-
-// приказ юниту идти в точку: путь в обход препятствий считается сразу,
-// target - точка, куда юнит реально придёт (ближайшая доступная)
-const orderUnit = (unit, target, objects) => {
-  const path = findPath(unit.position, target, objects, unitMargin(unit))
-  unit.path = path.length > 0 ? path : null
-  unit.target = path.length > 0 ? path[path.length - 1] : null
+const canAddObject = (state, { kind, object }) => {
+  if (!object || !Number.isSafeInteger(object.id) || object.id <= 0 ||
+    !Number.isInteger(object.group) || object.group < 0) return false
+  // ID общий для юнитов и статичных объектов
+  if ([...state.objects, ...state.units].some((item) => item.id === object.id)) return false
+  if (kind === 'unit' && Object.hasOwn(UNIT_TYPES, object.type)) {
+    return Number.isFinite(object.hp) && object.hp > 0 && isAreaFree(state, unitFootprint(object))
+  }
+  if (kind === 'static' && Object.hasOwn(OBJECT_TYPES, object.type)) {
+    const type = OBJECT_TYPES[object.type]
+    return (!('maxHp' in type) || (Number.isFinite(object.hp) && object.hp > 0)) &&
+      isAreaFree(state, staticFootprint(object))
+  }
+  return false
 }
 
-// состояние игры: что стоит на карте и что выбрано
+// Состояние игры: что стоит на карте и что выбрано
 export default {
   namespaced: true,
   state () {
@@ -55,18 +60,18 @@ export default {
       return state.objects.find((o) => o.id === id) ?? state.units.find((u) => u.id === id) ?? null
     },
     getStarted: (state) => state.started,
-    // игра идёт, если сценарий выбран и игра не закончена
+    // Игра идёт, если сценарий выбран и игра не закончена
     isRunning: (state, getters) => state.started && !getters.isGameOver,
-    // выбранные юниты игрока (группа PLAYER_GROUP)
+    // Выбранные юниты игрока (группа PLAYER_GROUP)
     getOwnSelectedUnits: (state) => state.units.filter((u) => state.selectedIds.includes(u.id) && u.group === PLAYER_GROUP),
     getPaused: (state) => state.paused,
     getScenarioId: (state) => state.scenarioId,
-    // группы у которых остались юниты или здания, группа 0 не считается
+    // Группы у которых остались юниты или здания, группа 0 не считается
     getAliveGroups: (state) => {
       const groups = [...state.units, ...state.objects].map((o) => o.group).filter((group) => group > 0)
       return [...new Set(groups)]
     },
-    // конец игры, когда осталась одна группа
+    // Конец игры, когда осталась одна группа
     getWinner: (state, getters) => (getters.getAliveGroups.length === 1 ? getters.getAliveGroups[0] : null),
     isGameOver: (state, getters) => state.started && getters.getAliveGroups.length <= 1,
     getSelectedUnits: (state) => state.units.filter((u) => state.selectedIds.includes(u.id)),
@@ -75,17 +80,31 @@ export default {
     [MUTATIONS.SET_SELECTED_IDS]: (state, ids) => {
       state.selectedIds = ids
     },
-    [MUTATIONS.SET_UNIT_TARGET]: (state, { id, target }) => {
+    [MUTATIONS.SET_UNIT_TARGET]: (state, { id, target, reserved = [] }) => {
       const unit = state.units.find((u) => u.id === id)
       if (unit) {
-        orderUnit(unit, target, state.objects)
+        orderUnit(state, unit, target, reserved)
       }
     },
-    // удаляем объект по id и убираем из выбора
+    // Удаляем объект по id и убираем из выбора
     [MUTATIONS.REMOVE_OBJECT]: (state, id) => {
       state.units = state.units.filter((u) => u.id !== id)
       state.objects = state.objects.filter((o) => o.id !== id)
       state.selectedIds = state.selectedIds.filter((selectedId) => selectedId !== id)
+    },
+    // Повторная проверка при добавлении: после превью место мог занять юнит
+    [MUTATIONS.ADD_OBJECT]: (state, payload) => {
+      if (!canAddObject(state, payload)) return
+      // Отделяем позицию от запроса, в том числе реактивного объекта Vue
+      const object = { ...payload.object, position: { ...payload.object.position } }
+      if (payload.kind === 'unit') {
+        object.target = null
+        object.path = null
+        object.blockedFor = 0
+        state.units.push(object)
+      } else {
+        state.objects.push(object)
+      }
     },
     [MUTATIONS.SET_PAUSED]: (state, paused) => {
       state.paused = paused
@@ -105,77 +124,20 @@ export default {
       state.paused = false
       state.selectedIds = []
     },
-    // двигаем время сценария и запускаем события
+    // Двигаем время сценария и запускаем события
     [MUTATIONS.RUN_SCENARIO_EVENTS]: (state, secondsPassed) => {
       state.scenarioTime += secondsPassed
       const due = state.pendingEvents.filter((e) => e.at <= state.scenarioTime)
       due.forEach((e) => {
         const unit = state.units.find((u) => u.id === e.unitId)
         if (unit) {
-          orderUnit(unit, e.target, state.objects)
+          orderUnit(state, unit, e.target)
         }
       })
       state.pendingEvents = state.pendingEvents.filter((e) => e.at > state.scenarioTime)
     },
-    // юнит идёт по точкам пути, последняя точка пути - target
     [MUTATIONS.MOVE_UNITS]: (state, secondsPassed) => {
-      for (const u of state.units) {
-        if (u.target) {
-          if (!u.path || u.path.length === 0) {
-            u.path = [u.target]
-          }
-          const waypoint = u.path[0]
-          const dx = waypoint.x - u.position.x
-          const dy = waypoint.y - u.position.y
-          const dist = Math.hypot(dx, dy)
-          const step = UNIT_TYPES[u.type].speedPxPerSecond * secondsPassed
-
-          const next = dist <= step
-            ? waypoint
-            : { x: u.position.x + (dx / dist) * step, y: u.position.y + (dy / dist) * step }
-
-          const margin = unitMargin(u)
-          const blocked = (point) => isBlocked(point, state.objects, margin)
-
-          if (!blocked(next) || blocked(u.position)) {
-            u.position = next
-            if (next === waypoint) {
-              u.path.shift()
-              if (u.path.length === 0) {
-                u.target = null
-                u.path = null
-              }
-            }
-          } else {
-            // задели угол препятствия - скользим вдоль стены
-            const slides = []
-            if (Math.abs(dx) > MIN_SLIDE) {
-              slides.push({ x: u.position.x + Math.sign(dx) * Math.min(step, Math.abs(dx)), y: u.position.y })
-            }
-            if (Math.abs(dy) > MIN_SLIDE) {
-              slides.push({ x: u.position.x, y: u.position.y + Math.sign(dy) * Math.min(step, Math.abs(dy)) })
-            }
-            const slide = slides.find((point) => !blocked(point))
-            if (slide) {
-              u.position = slide
-            }
-            else {
-              // путь перекрыт (например, новым зданием) - ищем путь заново,
-              // если новый путь упирается туда же, дальше идти некуда
-              const path = findPath(u.position, u.target, state.objects, margin)
-              const samePath = path.length > 0 && path[0].x === waypoint.x && path[0].y === waypoint.y
-              if (path.length > 0 && !samePath) {
-                u.path = path
-                u.target = path[path.length - 1]
-              }
-              else {
-                u.target = null
-                u.path = null
-              }
-            }
-          }
-        }
-      }
+      advanceUnits(state, secondsPassed)
     },
   },
   actions: {
@@ -191,7 +153,7 @@ export default {
       }
       store.commit(MUTATIONS.SET_SELECTED_IDS, ids)
     },
-    // shift + клик: юнит добавляется к выбору или убирается из него
+    // Shift + клик: юнит добавляется к выбору или убирается из него
     toggleSelect: (store, id) => {
       if (!store.getters.isRunning) {
         return
@@ -199,7 +161,7 @@ export default {
       const ids = store.getters.getSelectedUnits.map((u) => u.id)
       store.commit(MUTATIONS.SET_SELECTED_IDS, ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id])
     },
-    // shift + рамка: новые юниты добавляются к уже выбранным
+    // Shift + рамка: новые юниты добавляются к уже выбранным
     addToSelection: (store, ids) => {
       if (!store.getters.isRunning) {
         return
@@ -212,25 +174,37 @@ export default {
         return
       }
       const units = store.getters.getSelectedUnits
+      if (!units.length) return
       const columns = Math.ceil(Math.sqrt(units.length))
       const rows = Math.ceil(units.length / columns)
+      const spacing = Math.max(FORMATION_STEP, ...units.map((unit) => UNIT_TYPES[unit.type].width + 8))
+      // В пределах приказа каждое место назначается только одному юниту
+      const reserved = []
       units.forEach((unit, index) => {
         const column = index % columns
         const row = Math.floor(index / columns)
         store.commit(MUTATIONS.SET_UNIT_TARGET, {
           id: unit.id,
-          target: clampToMap({
-            x: point.x + (column - (columns - 1) / 2) * FORMATION_STEP,
-            y: point.y + (row - (rows - 1) / 2) * FORMATION_STEP,
+          target: clampUnitTarget(unit, {
+            x: point.x + (column - (columns - 1) / 2) * spacing,
+            y: point.y + (row - (rows - 1) / 2) * spacing,
           }),
+          reserved,
         })
+        if (unit.target) reserved.push({ ...unitFootprint(unit), position: unit.target })
       })
     },
-    // уничтожить объект по id
+    // Возвращает true при добавлении и false при отказе
+    addObject: (store, payload) => {
+      if (!store.getters.isRunning || store.state.paused || !payload || !canAddObject(store.state, payload)) return false
+      store.commit(MUTATIONS.ADD_OBJECT, payload)
+      return true
+    },
+    // Уничтожить объект по id
     destroyObject: (store, id) => {
       store.commit(MUTATIONS.REMOVE_OBJECT, id)
     },
-    // удаляем объекты у которых hp <= 0
+    // Удаляем объекты у которых hp <= 0
     removeDead: (store) => {
       if (!store.getters.isRunning || store.state.paused) {
         return
@@ -238,18 +212,18 @@ export default {
       const dead = [...store.state.units, ...store.state.objects].filter((o) => o.hp !== undefined && o.hp <= 0)
       dead.forEach((o) => store.dispatch('destroyObject', o.id))
     },
-    // самоуничтожение выбранных юнитов
+    // Самоуничтожение выбранных юнитов
     destroySelectedUnits: (store) => {
       if (!store.getters.isRunning) {
         return
       }
       store.getters.getSelectedUnits.forEach((unit) => store.dispatch('destroyObject', unit.id))
     },
-    // пауза: нажали - стоим, ещё раз - продолжаем
+    // Пауза: нажали - стоим, ещё раз - продолжаем
     togglePause: (store) => {
       store.commit(MUTATIONS.SET_PAUSED, !store.state.paused)
     },
-    // запустить сценарий по id
+    // Запустить сценарий по id
     loadScenario: (store, id) => {
       const scenario = SCENARIOS.find((s) => s.id === id)
       if (scenario) {
@@ -259,7 +233,7 @@ export default {
     openMenu: (store) => {
       store.commit(MUTATIONS.OPEN_MENU)
     },
-    // события сценария (на паузе и в меню не идут)
+    // События сценария (на паузе и в меню не идут)
     runScenarioEvents: (store, secondsPassed) => {
       if (store.state.started && !store.state.paused && !store.getters.isGameOver) {
         store.commit(MUTATIONS.RUN_SCENARIO_EVENTS, secondsPassed)
