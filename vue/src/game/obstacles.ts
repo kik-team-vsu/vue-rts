@@ -15,7 +15,7 @@ const isTerrainFree = (point: Point, margin: number, terrain?: TerrainType | 'bo
   isFootprintTerrainPassable(squareFootprint(point, margin), zones, terrain)
 
 // Область, где высокий объект закрывает юнита в изометрии
-const isHidden = (point: Point, objects: readonly StaticObject[], margin: number): boolean =>
+export const isHidden = (point: Point, objects: readonly StaticObject[], margin: number): boolean =>
   objects.some((o) => {
     const type = OBJECT_TYPES[o.type]
     if (!type.wallHeight) {
