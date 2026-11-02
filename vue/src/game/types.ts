@@ -42,6 +42,8 @@ export interface UnitType extends ObjectType {
   strength: number // урон за один удар
   attackSpeed: number // ударов в секунду
   terrain?: TerrainType | 'both' // где юнит может ходить, по умолчанию 'both' - везде
+  shape?: 'human' | 'boat' | 'warship' // как рисовать юнит, по умолчанию 'human' - человечек
+  footprint?: number // сторона квадрата столкновений; по умолчанию width (у длинных кораблей уже спрайта)
 }
 
 // Любой игровой объект
@@ -65,6 +67,7 @@ export interface Unit extends GameObject {
   target: Point | null // целевая точка при перемещении, null у стоящего объекта
   path?: Point[] | null // точки пути в обход препятствий, последняя совпадает с target
   blockedFor?: number // время ожидания до повторного поиска пути, секунды
+  facing?: number // куда смотрит нос (лицо), радианы в мировых координатах: 0 - +x, PI/2 - +y
 }
 
 // Событие сценария: в момент at (секунды) юнит идёт в точку target

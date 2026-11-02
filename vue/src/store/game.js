@@ -1,4 +1,4 @@
-import { OBJECT_TYPES, PLAYER_GROUP, START_OBJECTS, START_UNITS, UNIT_TYPES } from '@/game/config'
+import START_UNITS, { OBJECT_TYPES, PLAYER_GROUP, START_OBJECTS, UNIT_TYPES } from '@/game/config'
 import { SCENARIOS } from '@/game/scenarios'
 import { advanceUnits, clampUnitTarget, orderUnit } from '@/game/movement'
 import { isAreaFree, staticFootprint, unitFootprint } from '@/game/spatial'

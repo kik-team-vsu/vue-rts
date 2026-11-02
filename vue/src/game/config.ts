@@ -54,7 +54,8 @@ export const OBJECT_TYPES: Record<string, ObjectType | BuildingType> = {
 export const UNIT_TYPES: Record<string, UnitType> = {
   worker: { name: 'Рабочий', width: 24, height: 40, color: '#0000ff', speedPxPerSecond: 80, maxHp: 50, strength: 5, attackSpeed: 1, terrain: 'land' },
   warrior: { name: 'Воин', width: 32, height: 52, color: '#ff0000', speedPxPerSecond: 150, maxHp: 100, strength: 15, attackSpeed: 1.5, terrain: 'land' },
-  boat: { name: 'Лодка', width: 40, height: 24, color: '#d97706', speedPxPerSecond: 100, maxHp: 80, strength: 0, attackSpeed: 0, terrain: 'water' },
+  boat: { name: 'Лодка', width: 84, height: 46, color: '#c2853b', speedPxPerSecond: 110, maxHp: 80, strength: 0, attackSpeed: 0, terrain: 'water', shape: 'boat' },
+  warship: { name: 'Военный корабль', width: 132, height: 72, color: '#8b9199', speedPxPerSecond: 80, maxHp: 250, strength: 30, attackSpeed: 0.8, terrain: 'water', shape: 'warship' },
 }
 
 // цвета групп
@@ -79,18 +80,22 @@ export const START_OBJECTS: StaticObject[] = [
   { id: 4, type: 'tree', group: 0, position: { x: -550, y: 250 } },
   { id: 5, type: 'tree', group: 0, position: { x: 550, y: -150 } },
   { id: 6, type: 'castle', group: 1, hp: 500, position: { x: -900, y: -200 } },
-  { id: 14, type: 'castle', group: 2, hp: 500, position: { x: 600, y: 300 } },
+  { id: 7, type: 'castle', group: 2, hp: 500, position: { x: 600, y: 300 } },
 ]
 
-export const START_UNITS: Unit[] = [
-  { id: 7, type: 'worker', group: 1, hp: UNIT_TYPES.worker.maxHp, position: { x: -650, y: 0 }, target: null },
-  { id: 8, type: 'worker', group: 2, hp: UNIT_TYPES.worker.maxHp, position: { x: 60, y: 40 }, target: null },
-  { id: 9, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -600, y: 120 }, target: null },
-  { id: 10, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -650, y: -150 }, target: null },
-  { id: 11, type: 'warrior', group: 2, hp: UNIT_TYPES.warrior.maxHp, position: { x: 100, y: 100 }, target: null },
-  { id: 12, type: 'warrior', group: 2, hp: UNIT_TYPES.warrior.maxHp, position: { x: 200, y: 300 }, target: null },
-  { id: 13, type: 'boat', group: 1, hp: UNIT_TYPES.boat.maxHp, position: { x: 850, y: -475 }, target: null },
+const START_UNITS: Unit[] = [
+  { id: 8, type: 'worker', group: 1, hp: UNIT_TYPES.worker.maxHp, position: { x: -650, y: 0 }, target: null },
+  { id: 9, type: 'worker', group: 2, hp: UNIT_TYPES.worker.maxHp, position: { x: 60, y: 40 }, target: null },
+  { id: 10, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -600, y: 120 }, target: null },
+  { id: 11, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -650, y: -150 }, target: null },
+  { id: 12, type: 'warrior', group: 2, hp: UNIT_TYPES.warrior.maxHp, position: { x: 100, y: 100 }, target: null },
+  { id: 13, type: 'warrior', group: 2, hp: UNIT_TYPES.warrior.maxHp, position: { x: 200, y: 300 }, target: null },
+  { id: 14, type: 'boat', group: 2, hp: UNIT_TYPES.boat.maxHp, position: { x: 700, y: -470 }, target: null },
+  { id: 15, type: 'boat', group: 1, hp: UNIT_TYPES.boat.maxHp, position: { x: -350, y: 700 }, target: null },
+  { id: 16, type: 'warship', group: 2, hp: UNIT_TYPES.warship.maxHp, position: { x: 900, y: -600 }, target: null },
+  { id: 17, type: 'warship', group: 1, hp: UNIT_TYPES.warship.maxHp, position: { x: -200, y: 700 }, target: null },
 ]
+export default START_UNITS
 
 // кнопки панели, action вызывается из стора
 export const COMMANDS: Record<string, Command> = {

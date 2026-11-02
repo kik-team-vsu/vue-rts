@@ -64,6 +64,8 @@ export const advanceUnits = (world: CollisionWorld, secondsPassed: number) => {
         break
       }
       unit.position = { ...next }
+      // нос смотрит по направлению шага: рисование судов в изометрии поворачивает корпус по этому углу
+      if (distance > 0) unit.facing = Math.atan2(dy, dx)
       unit.blockedFor = 0
       budget -= step
       if (distance <= step) {

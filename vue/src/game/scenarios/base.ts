@@ -1,4 +1,4 @@
-import { START_OBJECTS, START_UNITS, TERRAIN_ZONES } from '@/game/config'
+import START_UNITS, { START_OBJECTS, TERRAIN_ZONES } from '@/game/config'
 import type { Scenario } from '@/game/types'
 
 // базовый сценарий из config: реки, озеро и горы, без событий
