@@ -10,6 +10,7 @@
         <div>Сила: {{ unitType.strength }}</div>
         <div>Скорость атаки: {{ unitType.attackSpeed }}</div>
         <div>Скорость: {{ unitSpeed }}</div>
+        <div>Местность: {{ unitTerrain }}</div>
         <div>{{ unitAction }}</div>
       </template>
       <template v-else-if="buildingType">
@@ -94,6 +95,20 @@ const groupName = computed(() => {
 const unitSpeed = computed(() => {
   if (unit.value) {
     return UNIT_TYPES[unit.value.type].speedPxPerSecond
+  }
+})
+
+// по какой местности юнит может ходить
+const TERRAIN_NAMES = {
+  land: 'суша',
+  water: 'вода',
+  mountain: 'горы',
+  both: 'суша и вода',
+}
+
+const unitTerrain = computed(() => {
+  if (unitType.value) {
+    return TERRAIN_NAMES[unitType.value.terrain ?? 'both']
   }
 })
 

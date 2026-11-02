@@ -48,7 +48,8 @@ const simulate = (state, frames = 600, delta = 1 / 60) => {
   }
 }
 const makeStore = (units = [unit(1, -200, 0), unit(2, 800, 800, 2)], objects = []) => {
-  const state = { ...game.state(), units, objects, started: true }
+  // столкновения проверяем на чистой суше: местность сценариев здесь не нужна
+  const state = { ...game.state(), units, objects, terrainZones: [], started: true }
   return createStore({ strict: true, modules: { game: { ...game, state: () => state } } })
 }
 

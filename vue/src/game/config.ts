@@ -1,7 +1,43 @@
-import type { BuildingType, Command, ObjectType, StaticObject, Unit, UnitType } from './types'
+import type { BuildingType, Command, ObjectType, StaticObject, TerrainZone, Unit, UnitType } from './types'
 
 // размер карты и cell - размер ячейики сетки в пикселях
 export const MAP = { width: 3000, height: 3000, cell: 50 }
+
+// ширина песчаного берега: узкая полоса вдоль каждого водоёма
+export const SAND_WIDTH = 22
+
+// водоёмы карты: озеро и одна река из двух прямоугольников.
+// Река идёт от северного края по x = -250 - ровно посередине между лагерями групп 1 и 2
+// (те стоят примерно на x -750 и x 300) - и у озера поворачивает на восток,
+// впадая в него с западной стороны. Приток перекрывает озеро на 20 px, щели на стыке нет.
+// У реки течение вдоль длинной стороны зоны: высокая зона получит плитку
+// с вертикальным течением, вытянутая по горизонтали - с обычным.
+// Зона в мировых координатах, x и y - левый верхний угол
+const WATER_ZONES: TerrainZone[] = [
+  { type: 'river', x: -350, y: -1500, width: 250, height: 2000 },
+  { type: 'river', x: -350, y: -670, width: 970, height: 250 },
+  { type: 'lake', x: 600, y: -700, width: 500, height: 450 },
+  { type: 'lake', x: -450, y: 500, width: 400, height: 400},
+]
+
+// Песчаная подложка: прямоугольник водоёма плюс узкая полоса по каждой стороне.
+// Подложка рисуется под водой, поэтому песок виден ровно по краям водоёма.
+// Края обрезаем по карте: за её пределами зоны были бы видны мимо ромба.
+const shoreOf = (water: TerrainZone, width: number): TerrainZone => {
+  const left = Math.max(-MAP.width / 2, water.x - width)
+  const top = Math.max(-MAP.height / 2, water.y - width)
+  const right = Math.min(MAP.width / 2, water.x + water.width + width)
+  const bottom = Math.min(MAP.height / 2, water.y + water.height + width)
+  return { type: 'sand', x: left, y: top, width: right - left, height: bottom - top }
+}
+
+// зоны местности: песок - проходимый берег, озеро и реки - вода, горы - непроходимы, всё вне зон - суша.
+// Порядок - порядок отрисовки: сначала песок, вода и горы закрывают его середину.
+export const TERRAIN_ZONES: TerrainZone[] = [
+  ...WATER_ZONES.map((water) => shoreOf(water, SAND_WIDTH)),
+  ...WATER_ZONES,
+  { type: 'mountain', x: -1100, y: -1200, width: 500, height: 500 },
+]
 
 // edgePx - зона у края экрана, где камера начинает двигаться
 export const CAMERA = { speedPxPerSecond: 500, edgePx: 80 }
@@ -16,8 +52,10 @@ export const OBJECT_TYPES: Record<string, ObjectType | BuildingType> = {
 }
 
 export const UNIT_TYPES: Record<string, UnitType> = {
-  worker: { name: 'Рабочий', width: 24, height: 40, color: '#0000ff', speedPxPerSecond: 80, maxHp: 50, strength: 5, attackSpeed: 1 },
-  warrior: { name: 'Воин', width: 32, height: 52, color: '#ff0000', speedPxPerSecond: 150, maxHp: 100, strength: 15, attackSpeed: 1.5 },
+  worker: { name: 'Рабочий', width: 24, height: 40, color: '#0000ff', speedPxPerSecond: 80, maxHp: 50, strength: 5, attackSpeed: 1, terrain: 'land' },
+  warrior: { name: 'Воин', width: 32, height: 52, color: '#ff0000', speedPxPerSecond: 150, maxHp: 100, strength: 15, attackSpeed: 1.5, terrain: 'land' },
+  boat: { name: 'Лодка', width: 84, height: 46, color: '#c2853b', speedPxPerSecond: 110, maxHp: 80, strength: 0, attackSpeed: 0, terrain: 'water', shape: 'boat' },
+  warship: { name: 'Военный корабль', width: 132, height: 72, color: '#8b9199', speedPxPerSecond: 80, maxHp: 250, strength: 30, attackSpeed: 0.8, terrain: 'water', shape: 'warship' },
 }
 
 // цвета групп
@@ -36,21 +74,28 @@ export const PLAYER_GROUP = 1
 
 // group: 0 - нейтральные, 1 и 2 - разные группы; hp здания равен maxHp его типа
 export const START_OBJECTS: StaticObject[] = [
-  { id: 1, type: 'house', group: 1, hp: 200, position: { x: -200, y: -150 } },
-  { id: 2, type: 'house', group: 2, hp: 200, position: { x: 350, y: 250 } },
+  { id: 1, type: 'house', group: 1, hp: 200, position: { x: -800, y: 100 } },
+  { id: 2, type: 'house', group: 2, hp: 200, position: { x: 350, y: 550 } },
   { id: 3, type: 'tree', group: 0, position: { x: 150, y: -300 } },
-  { id: 4, type: 'tree', group: 0, position: { x: -350, y: 250 } },
+  { id: 4, type: 'tree', group: 0, position: { x: -550, y: 250 } },
   { id: 5, type: 'tree', group: 0, position: { x: 550, y: -150 } },
-  { id: 6, type: 'castle', group: 1, hp: 500, position: { x: -550, y: -200 } },
+  { id: 6, type: 'castle', group: 1, hp: 500, position: { x: -900, y: -200 } },
+  { id: 7, type: 'castle', group: 2, hp: 500, position: { x: 600, y: 300 } },
 ]
 
-export const START_UNITS: Unit[] = [
-  { id: 7, type: 'worker', group: 1, hp: UNIT_TYPES.worker.maxHp, position: { x: 0, y: 0 }, target: null },
-  { id: 8, type: 'worker', group: 2, hp: UNIT_TYPES.worker.maxHp, position: { x: 60, y: 40 }, target: null },
-  { id: 9, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -100, y: 120 }, target: null },
-  { id: 10, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -150, y: 80 }, target: null },
-  { id: 11, type: 'warrior', group: 2, hp: UNIT_TYPES.warrior.maxHp, position: { x: 100, y: 100 }, target: null },
+const START_UNITS: Unit[] = [
+  { id: 8, type: 'worker', group: 1, hp: UNIT_TYPES.worker.maxHp, position: { x: -650, y: 0 }, target: null },
+  { id: 9, type: 'worker', group: 2, hp: UNIT_TYPES.worker.maxHp, position: { x: 60, y: 40 }, target: null },
+  { id: 10, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -600, y: 120 }, target: null },
+  { id: 11, type: 'warrior', group: 1, hp: UNIT_TYPES.warrior.maxHp, position: { x: -650, y: -150 }, target: null },
+  { id: 12, type: 'warrior', group: 2, hp: UNIT_TYPES.warrior.maxHp, position: { x: 100, y: 100 }, target: null },
+  { id: 13, type: 'warrior', group: 2, hp: UNIT_TYPES.warrior.maxHp, position: { x: 200, y: 300 }, target: null },
+  { id: 14, type: 'boat', group: 2, hp: UNIT_TYPES.boat.maxHp, position: { x: 700, y: -470 }, target: null },
+  { id: 15, type: 'boat', group: 1, hp: UNIT_TYPES.boat.maxHp, position: { x: -350, y: 700 }, target: null },
+  { id: 16, type: 'warship', group: 2, hp: UNIT_TYPES.warship.maxHp, position: { x: 900, y: -600 }, target: null },
+  { id: 17, type: 'warship', group: 1, hp: UNIT_TYPES.warship.maxHp, position: { x: -200, y: 700 }, target: null },
 ]
+export default START_UNITS
 
 // кнопки панели, action вызывается из стора
 export const COMMANDS: Record<string, Command> = {

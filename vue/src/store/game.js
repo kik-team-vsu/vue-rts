@@ -1,7 +1,12 @@
-import { OBJECT_TYPES, PLAYER_GROUP, START_OBJECTS, START_UNITS, UNIT_TYPES } from '@/game/config'
+import START_UNITS, { OBJECT_TYPES, PLAYER_GROUP, START_OBJECTS, UNIT_TYPES } from '@/game/config'
 import { SCENARIOS } from '@/game/scenarios'
 import { advanceUnits, clampUnitTarget, orderUnit } from '@/game/movement'
 import { isAreaFree, staticFootprint, unitFootprint } from '@/game/spatial'
+import { isFootprintTerrainPassable } from '@/game/terrain'
+
+// новая постройка ставится только на сушу, новый юнит - только на свою местность
+const fitsTerrain = (state, kind, object, area) =>
+  isFootprintTerrainPassable(area, state.terrainZones, kind === 'unit' ? UNIT_TYPES[object.type].terrain : 'land')
 
 const MUTATIONS = {
   SET_SELECTED_IDS: 'SET_SELECTED_IDS',
@@ -23,12 +28,13 @@ const canAddObject = (state, { kind, object }) => {
   // ID общий для юнитов и статичных объектов
   if ([...state.objects, ...state.units].some((item) => item.id === object.id)) return false
   if (kind === 'unit' && Object.hasOwn(UNIT_TYPES, object.type)) {
-    return Number.isFinite(object.hp) && object.hp > 0 && isAreaFree(state, unitFootprint(object))
+    return Number.isFinite(object.hp) && object.hp > 0 && isAreaFree(state, unitFootprint(object)) &&
+      fitsTerrain(state, kind, object, unitFootprint(object))
   }
   if (kind === 'static' && Object.hasOwn(OBJECT_TYPES, object.type)) {
     const type = OBJECT_TYPES[object.type]
     return (!('maxHp' in type) || (Number.isFinite(object.hp) && object.hp > 0)) &&
-      isAreaFree(state, staticFootprint(object))
+      isAreaFree(state, staticFootprint(object)) && fitsTerrain(state, kind, object, staticFootprint(object))
   }
   return false
 }
@@ -40,6 +46,8 @@ export default {
     return {
       objects: structuredClone(START_OBJECTS),
       units: structuredClone(START_UNITS),
+      // до старта в меню показываем карту первого сценария - базового
+      terrainZones: structuredClone(SCENARIOS[0].terrain),
       selectedIds: [],
       started: false, // false - показываем меню
       paused: false,
@@ -118,6 +126,7 @@ export default {
       state.scenarioTime = 0
       state.pendingEvents = structuredClone(scenario.events)
       state.scenarioId = scenario.id
+      state.terrainZones = structuredClone(scenario.terrain)
     },
     [MUTATIONS.OPEN_MENU]: (state) => {
       state.started = false
@@ -161,7 +170,7 @@ export default {
       const ids = store.getters.getSelectedUnits.map((u) => u.id)
       store.commit(MUTATIONS.SET_SELECTED_IDS, ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id])
     },
-    // Shift + рамка: новые юниты добавляются к уже выбранным
+    // shift + рамка: новые юниты добавляются к уже выбранным
     addToSelection: (store, ids) => {
       if (!store.getters.isRunning) {
         return

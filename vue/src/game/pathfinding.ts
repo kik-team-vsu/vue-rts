@@ -1,36 +1,16 @@
-import { MAP } from './config'
 import { isBlocked, isSegmentFree } from './obstacles'
-import { COLLISION_EPSILON, findNearestFreePosition, SEARCH_STEP, squareFootprint } from './spatial'
 import type { NavigationOptions } from './obstacles'
+import {
+  cellToPoint, COLS, componentAt, nearestReachableCell, navigationGrid, pointToCell, ROWS, withDynamicBlockers,
+} from './navigation'
+import { COLLISION_EPSILON, findNearestFreePosition, SEARCH_STEP, squareFootprint, unitFootprint } from './spatial'
 import type { Point, StaticObject } from './types'
 
 const STEP = SEARCH_STEP
-const COLS = Math.floor(MAP.width / STEP) + 1
-const ROWS = Math.floor(MAP.height / STEP) + 1
 const distance = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y)
 
 interface PathOptions extends NavigationOptions {
   allowPartial?: boolean // разрешить остановку в ближайшем достижимом узле
-}
-
-// Узел сетки хранится числом: row * COLS + col
-const cellToPoint = (cell: number): Point => ({
-  x: -MAP.width / 2 + (cell % COLS) * STEP,
-  y: -MAP.height / 2 + Math.floor(cell / COLS) * STEP,
-})
-
-const neighbors = (cell: number): number[] => {
-  const col = cell % COLS
-  const row = Math.floor(cell / COLS)
-  const result = []
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      if ((dx || dy) && col + dx >= 0 && col + dx < COLS && row + dy >= 0 && row + dy < ROWS) {
-        result.push(cell + dy * COLS + dx)
-      }
-    }
-  }
-  return result
 }
 
 interface PathNode {
@@ -90,17 +70,49 @@ const smoothPath = (from: Point, points: Point[], free: (a: Point, b: Point) => 
   return result
 }
 
-// A* по сетке 25 px использует ту же проверку отрезков, что движение
+// A* по сетке 25 px. Статика заранее разложена в маски (navigation.ts):
+// точная проверка отрезка нужна только у самых препятствий
 export const findPath = (
   from: Point, to: Point, objects: readonly StaticObject[], margin: number, options: PathOptions = {},
 ): Point[] => {
   const free = (a: Point, b: Point) => isSegmentFree(a, b, objects, margin, options)
   if (!free(from, from)) return []
+
+  const blockers = [
+    ...(options.units ?? []).filter((unit) => unit.id !== options.ignoreId).map(unitFootprint),
+    ...(options.reserved ?? []),
+  ]
+  const grid = withDynamicBlockers(navigationGrid(objects, margin, options.terrain, options.terrainZones), blockers, margin)
+  const { blocked, hidden, near } = grid
+
+  // Старт между узлами соединяем с сеткой только свободными отрезками
+  const seeds: number[] = []
+  const startCell = pointToCell(from)
+  const startCol = startCell % COLS
+  const startRow = Math.floor(startCell / COLS)
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (startCol + dx < 0 || startCol + dx >= COLS || startRow + dy < 0 || startRow + dy >= ROWS) continue
+      const cell = (startRow + dy) * COLS + startCol + dx
+      if (!blocked[cell] && free(from, cellToPoint(cell))) seeds.push(cell)
+    }
+  }
+  // Старт в зоне перекрытия выходит наружу, компоненты для него не определены
+  const startComponents = new Set(seeds.map((cell) => grid.component[cell]))
+  const knownStart = seeds.length > 0 && !startComponents.has(-1)
+
   // Занятую цель заменяем ближайшей свободной точкой
-  const goal = findNearestFreePosition(
+  let goal = findNearestFreePosition(
     { objects, units: options.units ?? [] }, squareFootprint(to, margin),
     { ...options, accept: (point) => !isBlocked(point, objects, margin, options) },
   )
+  // Цель в другой компоненте недостижима: не обходим всю карту, а сразу решаем,
+  // отказать в приказе или остановиться у ближайшей достижимой клетки к цели
+  if (knownStart && (!goal || !startComponents.has(componentAt(grid, goal)))) {
+    if (options.allowPartial === false) return []
+    const cell = nearestReachableCell(grid, pointToCell(goal ?? to), startComponents)
+    goal = cell === -1 ? null : cellToPoint(cell)
+  }
   if (!goal || distance(from, goal) < COLLISION_EPSILON) return []
   if (free(from, goal)) return [goal]
 
@@ -108,20 +120,10 @@ export const findPath = (
   const parent = new Int32Array(COLS * ROWS).fill(-1)
   const closed = new Uint8Array(COLS * ROWS)
   const open = new PathQueue()
-
-  // Старт между узлами соединяем с сеткой только свободными отрезками
-  const col = Math.round((from.x + MAP.width / 2) / STEP)
-  const row = Math.round((from.y + MAP.height / 2) / STEP)
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      if (col + dx < 0 || col + dx >= COLS || row + dy < 0 || row + dy >= ROWS) continue
-      const cell = (row + dy) * COLS + col + dx
-      const point = cellToPoint(cell)
-      if (free(from, point)) {
-        cost[cell] = distance(from, point)
-        open.push({ cell, cost: cost[cell], priority: cost[cell] + distance(point, goal) })
-      }
-    }
+  for (const cell of seeds) {
+    const point = cellToPoint(cell)
+    cost[cell] = distance(from, point)
+    open.push({ cell, cost: cost[cell], priority: cost[cell] + distance(point, goal) })
   }
 
   let best = -1
@@ -144,14 +146,23 @@ export const findPath = (
       reached = true
       break
     }
-    for (const next of neighbors(cell)) {
-      if (closed[next]) continue
-      const nextPoint = cellToPoint(next)
-      const nextCost = cost[cell] + distance(point, nextPoint)
-      if (nextCost >= cost[next] || !free(point, nextPoint)) continue
-      cost[next] = nextCost
-      parent[next] = cell
-      open.push({ cell: next, cost: nextCost, priority: nextCost + distance(nextPoint, goal) })
+    const col = cell % COLS
+    const row = (cell - col) / COLS
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if ((!dx && !dy) || col + dx < 0 || col + dx >= COLS || row + dy < 0 || row + dy >= ROWS) continue
+        const next = cell + dy * COLS + dx
+        // В зону перекрытия можно только выйти из неё, но не войти снаружи
+        if (closed[next] || blocked[next] || (hidden[next] && !hidden[cell])) continue
+        const nextCost = cost[cell] + (dx && dy ? STEP * Math.SQRT2 : STEP)
+        if (nextCost >= cost[next]) continue
+        const nextPoint = cellToPoint(next)
+        // Вдали от препятствий ребро свободно по построению маски
+        if ((near[cell] || near[next]) && !free(point, nextPoint)) continue
+        cost[next] = nextCost
+        parent[next] = cell
+        open.push({ cell: next, cost: nextCost, priority: nextCost + distance(nextPoint, goal) })
+      }
     }
   }
 

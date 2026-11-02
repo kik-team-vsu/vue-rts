@@ -12,6 +12,14 @@
     <div class="world" :style="worldStyle">
       <div class="ground" :style="groundStyle" />
 
+      <!-- зоны местности: тот же поворот и сжатие, что у земли -->
+      <div
+          v-for="(zone, index) in terrainZones"
+          :key="'terrain-' + index"
+          class="terrain-zone"
+          :class="zoneClass(zone)"
+          :style="zoneStyle(zone)" />
+
       <div class="objects-layer">
         <!-- уничтоженный объект не пропадает сразу, а проигрывает анимацию destroy -->
         <TransitionGroup name="destroy">
@@ -66,7 +74,7 @@ import GameStaticObject from './GameStaticObject.vue'
 import GameUnit from './GameUnit.vue'
 import { CAMERA, MAP, OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
 import { clampToMap, screenToWorld, worldToScreen } from '@/game/coords'
-import type { Point, StaticObject, Unit } from '@/game/types'
+import type { Point, StaticObject, TerrainZone, Unit } from '@/game/types'
 
 interface Box {
   left: number
@@ -84,6 +92,7 @@ let dragCurrent: Point = { x: 0, y: 0 }
 const store = useStore()
 const objects = computed<StaticObject[]>(() => store.getters['game/getObjects'])
 const units = computed<Unit[]>(() => store.getters['game/getUnits'])
+const terrainZones = computed<TerrainZone[]>(() => store.state.game.terrainZones)
 const selectedIds = computed<number[]>(() => store.getters['game/getSelectedIds'])
 const selectedUnits = computed<Unit[]>(() => store.getters['game/getSelectedUnits'])
 
@@ -110,6 +119,24 @@ const groundStyle = {
   height: MAP.height + 'px',
   backgroundSize: `${MAP.cell}px ${MAP.cell}px, ${MAP.cell}px ${MAP.cell}px, 256px 256px`,
 }
+
+// зона местности в мировых координатах.
+// Точка поворота - центр карты (мировой ноль), как у .ground, иначе зона съедет:
+// в локальных координатах зоны мировой ноль лежит в (-zone.x, -zone.y)
+const zoneStyle = (zone: TerrainZone) => ({
+  left: zone.x + 'px',
+  top: zone.y + 'px',
+  width: zone.width + 'px',
+  height: zone.height + 'px',
+  transformOrigin: `${-zone.x}px ${-zone.y}px`,
+})
+
+// класс зоны: у реки течение вдоль длинной стороны зоны,
+// узкая и высокая зона получает плитку с вертикальным течением
+const zoneClass = (zone: TerrainZone) =>
+  zone.type === 'river' && zone.height > zone.width
+    ? 'terrain-zone--river-v'
+    : 'terrain-zone--' + zone.type
 
 const orders = computed(() => {
   const result = []
@@ -388,6 +415,41 @@ onUnmounted(() => {
 .objects-layer {
   position: absolute;
   z-index: 0;
+}
+
+.terrain-zone {
+  position: absolute;
+  // как у .ground: ромбовидная зона в изометрии
+  transform: scaleY(0.5) rotate(45deg);
+
+  // озеро: спокойная глубокая вода
+  &--lake {
+    background-color: #2563eb;
+    background-image: url('../../assets/lake.svg');
+  }
+
+  // река: та же вода, но плитка с полосами течения
+  &--river {
+    background-color: #2563eb;
+    background-image: url('../../assets/river.svg');
+  }
+
+  // вертикальная река: та же плитка, течение вдоль оси y
+  &--river-v {
+    background-color: #2563eb;
+    background-image: url('../../assets/river-vertical.svg');
+  }
+
+  // песок: декоративный берег, проходим как суша
+  &--sand {
+    background-color: #cfb684;
+    background-image: url('../../assets/sand.svg');
+  }
+
+  // горы: непроходимая скалистая местность с пиками
+  &--mountain {
+    background-image: url('../../assets/mountain.svg');
+  }
 }
 
 // уничтожение: объект сжимается к основанию и исчезает
