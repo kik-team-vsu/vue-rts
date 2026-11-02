@@ -14,8 +14,8 @@ export const SAND_WIDTH = 22
 // с вертикальным течением, вытянутая по горизонтали - с обычным.
 // Зона в мировых координатах, x и y - левый верхний угол
 const WATER_ZONES: TerrainZone[] = [
-  { type: 'river', x: -350, y: -1500, width: 200, height: 2000 },
-  { type: 'river', x: -350, y: -670, width: 970, height: 200 },
+  { type: 'river', x: -350, y: -1500, width: 250, height: 2000 },
+  { type: 'river', x: -350, y: -670, width: 970, height: 250 },
   { type: 'lake', x: 600, y: -700, width: 500, height: 450 },
   { type: 'lake', x: -450, y: 500, width: 400, height: 400},
 ]
