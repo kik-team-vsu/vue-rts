@@ -74,12 +74,13 @@ export interface ScenarioEvent {
   target: Point
 }
 
-// Сценарий: расстановка на старте и события по времени
+// Сценарий: расстановка на старте, зоны местности и события по времени
 export interface Scenario {
   id: string
   name: string
   objects: StaticObject[]
   units: Unit[]
+  terrain: TerrainZone[] // реки, озёра, горы и песок этого сценария; [] - чистая суша
   events: ScenarioEvent[]
 }
 

@@ -14,7 +14,7 @@
 
       <!-- зоны местности: тот же поворот и сжатие, что у земли -->
       <div
-          v-for="(zone, index) in TERRAIN_ZONES"
+          v-for="(zone, index) in terrainZones"
           :key="'terrain-' + index"
           class="terrain-zone"
           :class="zoneClass(zone)"
@@ -72,7 +72,7 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useStore } from 'vuex'
 import GameStaticObject from './GameStaticObject.vue'
 import GameUnit from './GameUnit.vue'
-import { CAMERA, MAP, OBJECT_TYPES, TERRAIN_ZONES, UNIT_TYPES } from '@/game/config'
+import { CAMERA, MAP, OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
 import { clampToMap, screenToWorld, worldToScreen } from '@/game/coords'
 import type { Point, StaticObject, TerrainZone, Unit } from '@/game/types'
 
@@ -92,6 +92,7 @@ let dragCurrent: Point = { x: 0, y: 0 }
 const store = useStore()
 const objects = computed<StaticObject[]>(() => store.getters['game/getObjects'])
 const units = computed<Unit[]>(() => store.getters['game/getUnits'])
+const terrainZones = computed<TerrainZone[]>(() => store.state.game.terrainZones)
 const selectedIds = computed<number[]>(() => store.getters['game/getSelectedIds'])
 const selectedUnits = computed<Unit[]>(() => store.getters['game/getSelectedUnits'])
 

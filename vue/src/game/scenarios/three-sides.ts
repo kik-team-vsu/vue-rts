@@ -19,5 +19,6 @@ export const THREE_SIDES: Scenario = {
         makeUnit(9, 'warrior', 3, 0, -300),
         makeUnit(10, 'worker', 3, 60, -300),
     ],
+    terrain: [],
     events: [],
 }

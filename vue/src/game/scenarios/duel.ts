@@ -12,6 +12,7 @@ export const DUEL: Scenario = {
     makeUnit(2, 'warrior', 1, -200, 0),
     makeUnit(3, 'warrior', 2, 200, 0),
   ],
+  terrain: [],
   events: [
     { at: 2, unitId: 3, target: { x: 0, y: 0 } },
   ],
