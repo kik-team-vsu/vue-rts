@@ -5,7 +5,8 @@
       :class="{ 'screen-view--paused': paused }"
       @mousedown.left="(event) => startSelect(event)"
       @mousedown.middle.prevent="(event) => startDrag(event)"
-      @contextmenu.prevent="(event) => moveSelected(event)"
+      @mousedown.right="(event) => startFollow(event)"
+      @contextmenu.prevent
       @mousemove="(event) => saveMouse(event)"
       @mouseleave="() => resetMouse()">
 
@@ -67,6 +68,8 @@ interface Box {
 
 // рамка считается рамкой, только если мышь заметно сдвинули, иначе это обычный клик
 const MIN_SELECTION_PX = 5
+// при зажатой ПКМ точка назначения обновляется не чаще, чем раз в столько миллисекунд
+const FOLLOW_INTERVAL_MS = 150
 
 // перетаскивание камеры средней кнопкой мыши
 let dragging = false
@@ -88,6 +91,10 @@ const screenView = ref<HTMLElement | null>(null)
 const camera = computed<Point>(() => store.getters['camera/getPosition'])
 // положение курсора внутри окна игры
 const mouse = { x: 0, y: 0 }
+
+// ведение юнитов за курсором при зажатой ПКМ
+let following = false
+let lastFollowTime = 0
 
 // выделение рамкой юнитов
 let selectStart: Point | null = null
@@ -163,6 +170,29 @@ const moveSelected = (e: MouseEvent) => {
     actorIds: selectedUnits.value.map((u) => u.id),
     point: toWorld(e),
     append: e.shiftKey,
+  })
+}
+
+// ПКМ нажата: сразу отдаём приказ и начинаем вести юнитов за курсором
+const startFollow = (e: MouseEvent) => {
+  moveSelected(e)
+  following = true
+  lastFollowTime = performance.now()
+}
+
+// курсор двигается с зажатой ПКМ: переносим точку последнего приказа (force - без ограничения частоты)
+const follow = (e: MouseEvent, force = false) => {
+  if (!following) {
+    return
+  }
+  const now = performance.now()
+  if (!force && now - lastFollowTime < FOLLOW_INTERVAL_MS) {
+    return
+  }
+  lastFollowTime = now
+  store.dispatch('events/retargetMove', {
+    actorIds: selectedUnits.value.map((u) => u.id),
+    point: toWorld(e),
   })
 }
 
@@ -244,6 +274,7 @@ const startDrag = (e: MouseEvent) => {
 }
 
 const onWindowMouseMove = (e: MouseEvent) => {
+  follow(e)
   if (!dragging) {
     return
   }
@@ -257,6 +288,11 @@ const onWindowMouseUp = (e: MouseEvent) => {
   }
   if (e.button === 1) {
     dragging = false
+  }
+  if (e.button === 2 && following) {
+    // ПКМ отпущена: точка под курсором становится конечной
+    follow(e, true)
+    following = false
   }
 }
 
