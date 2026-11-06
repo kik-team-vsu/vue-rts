@@ -40,8 +40,8 @@ import { OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
 import type { StaticObject, Unit } from '@/game/types'
 
 const store = useStore()
-const selected = computed<StaticObject | Unit | null>(() => store.getters['game/getSelected'])
-const selectedUnits = computed<Unit[]>(() => store.getters['game/getSelectedUnits'])
+const selected = computed<StaticObject | Unit | null>(() => store.getters['selection/getSelected'])
+const selectedUnits = computed<Unit[]>(() => store.getters['selection/getSelectedUnits'])
 
 const unit = computed(() => {
   const selectedObject = selected.value

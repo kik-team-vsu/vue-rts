@@ -24,7 +24,7 @@ import type { Command } from '@/game/types'
 // одна панель команд, кнопки зависят от выбора
 const store = useStore()
 const isRunning = computed<boolean>(() => store.getters['game/isRunning'])
-const selectedUnits = computed(() => store.getters['game/getSelectedUnits'])
+const selectedUnits = computed(() => store.getters['selection/getSelectedUnits'])
 
 const commands = computed<Command[]>(() => {
   // в меню и после конца игры кнопок нет

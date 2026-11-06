@@ -90,11 +90,11 @@ let dragCurrent: Point = { x: 0, y: 0 }
 
 // объекты, юниты и выбор хранятся в store
 const store = useStore()
-const objects = computed<StaticObject[]>(() => store.getters['game/getObjects'])
-const units = computed<Unit[]>(() => store.getters['game/getUnits'])
-const terrainZones = computed<TerrainZone[]>(() => store.state.game.terrainZones)
-const selectedIds = computed<number[]>(() => store.getters['game/getSelectedIds'])
-const selectedUnits = computed<Unit[]>(() => store.getters['game/getSelectedUnits'])
+const objects = computed<StaticObject[]>(() => store.getters['world/getObjects'])
+const units = computed<Unit[]>(() => store.getters['world/getUnits'])
+const terrainZones = computed<TerrainZone[]>(() => store.getters['world/getTerrainZones'])
+const selectedIds = computed<number[]>(() => store.getters['selection/getSelectedIds'])
+const selectedUnits = computed<Unit[]>(() => store.getters['selection/getSelectedUnits'])
 
 const paused = computed<boolean>(() => store.getters['game/getPaused'])
 const isRunning = computed<boolean>(() => store.getters['game/isRunning'])
@@ -202,7 +202,7 @@ const resetMouse = () => {
 }
 
 const moveSelected = (e: MouseEvent) => {
-  store.dispatch('game/moveSelected', toWorld(e))
+  store.dispatch('world/moveSelected', toWorld(e))
 }
 
 const clampCamera = () => {
@@ -212,12 +212,12 @@ const clampCamera = () => {
 }
 
 const select = (id: number | null) => {
-  store.dispatch('game/select', id)
+  store.dispatch('selection/select', id)
 }
 
 const selectUnit = (id: number, additive: boolean) => {
   if (additive) {
-    store.dispatch('game/toggleSelect', id)
+    store.dispatch('selection/toggleSelect', id)
   }
   else {
     select(id)
@@ -279,7 +279,7 @@ const finishSelect = () => {
       return x >= box.left && x <= box.left + box.width && y >= box.top && y <= box.top + box.height
     })
     .map((u) => u.id)
-  store.dispatch(selectAdditive ? 'game/addToSelection' : 'game/selectMany', ids)
+  store.dispatch(selectAdditive ? 'selection/addToSelection' : 'selection/selectMany', ids)
 }
 
 const startDrag = (e: MouseEvent) => {
@@ -356,8 +356,8 @@ const tick = (time: number) => {
   moveCamera(secondsPassed)
   updateSelectionBox()
   store.dispatch('game/runScenarioEvents', secondsPassed)
-  store.dispatch('game/moveUnits', secondsPassed)
-  store.dispatch('game/removeDead')
+  store.dispatch('world/moveUnits', secondsPassed)
+  store.dispatch('world/removeDead')
 
   frameId = requestAnimationFrame(tick)
 }
