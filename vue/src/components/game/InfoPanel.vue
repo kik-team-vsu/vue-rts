@@ -37,7 +37,7 @@
 import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
-import type { StaticObject, Unit } from '@/game/types'
+import type { GameEvent, StaticObject, Unit } from '@/game/types'
 
 const store = useStore()
 const selected = computed<StaticObject | Unit | null>(() => store.getters['selection/getSelected'])
@@ -112,15 +112,17 @@ const unitTerrain = computed(() => {
   }
 })
 
+// что юнит делает сейчас - по его текущему событию
+const currentEvent = computed<GameEvent | null>(() => (unit.value ? store.getters['events/getCurrent'](unit.value.id) : null))
+
 const unitAction = computed(() => {
-  if (unit.value) {
-    if (unit.value.target) {
-      return 'Движется'
-    }
-    else {
-      return 'Стоит'
-    }
+  if (!unit.value) {
+    return undefined
   }
+  if (currentEvent.value?.type === 'move') {
+    return 'Движется'
+  }
+  return 'Стоит'
 })
 </script>
 

@@ -56,7 +56,9 @@ export default {
         return
       }
       dispatch('game/runScenarioEvents', secondsPassed, { root: true })
+      dispatch('events/startPending', null, { root: true })
       dispatch('world/moveUnits', secondsPassed, { root: true })
+      dispatch('events/finishArrived', null, { root: true })
       dispatch('world/removeDead', null, { root: true })
     },
   },

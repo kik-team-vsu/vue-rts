@@ -66,21 +66,23 @@ export default {
       if (scenario) {
         dispatch('world/load', scenario, { root: true })
         dispatch('selection/clear', null, { root: true })
+        dispatch('events/clear', null, { root: true })
         commit(MUTATIONS.START_SCENARIO, scenario)
       }
     },
     openMenu: ({ commit, dispatch }) => {
       commit(MUTATIONS.OPEN_MENU)
       dispatch('selection/clear', null, { root: true })
+      dispatch('events/clear', null, { root: true })
     },
-    // События сценария (на паузе и в меню не идут)
+    // События сценария (на паузе и в меню не идут): наступившие становятся событиями move в сторе events
     runScenarioEvents: ({ state, commit, dispatch, getters }, secondsPassed) => {
       if (!state.started || state.paused || getters.isGameOver) {
         return
       }
       const due = state.pendingEvents.filter((e) => e.at <= state.scenarioTime + secondsPassed)
       commit(MUTATIONS.ADVANCE_SCENARIO, secondsPassed)
-      due.forEach((e) => dispatch('world/orderUnit', { id: e.unitId, target: e.target }, { root: true }))
+      due.forEach((e) => dispatch('events/orderMove', { actorIds: [e.unitId], point: e.target }, { root: true }))
     },
   },
 }

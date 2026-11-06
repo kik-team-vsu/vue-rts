@@ -1,0 +1,146 @@
+import { UNIT_TYPES } from '@/game/config'
+import { clampUnitTarget } from '@/game/movement'
+import { unitFootprint } from '@/game/spatial'
+
+// Хранилище текущих событий (формат - GameEvent в game/types.ts).
+// Игрок и сценарии только создают события, а применяет их к элементам карты игровой цикл (engine/tick):
+// событие move при старте прокладывает юниту маршрут (A* из game/pathfinding), а когда юнит дошёл - завершается.
+
+const MUTATIONS = {
+  ADD: 'ADD',
+  REMOVE: 'REMOVE',
+  REMOVE_BY_ACTOR: 'REMOVE_BY_ACTOR',
+  CLEAR: 'CLEAR',
+  SET_STARTED: 'SET_STARTED',
+}
+
+export const EVENT_STATUS = {
+  ACTIVE: 'active',
+  WAITING: 'waiting',
+}
+
+// расстояние между юнитами в строю
+const FORMATION_STEP = 40
+
+// Точки для группы юнитов вокруг point: квадратный строй, чтобы юниты не сбивались в одну точку
+const formationTargets = (units, point) => {
+  const columns = Math.ceil(Math.sqrt(units.length))
+  const rows = Math.ceil(units.length / columns)
+  const spacing = Math.max(FORMATION_STEP, ...units.map((unit) => UNIT_TYPES[unit.type].width + 8))
+  return units.map((unit, index) => {
+    const column = index % columns
+    const row = Math.floor(index / columns)
+    return clampUnitTarget(unit, {
+      x: point.x + (column - (columns - 1) / 2) * spacing,
+      y: point.y + (row - (rows - 1) / 2) * spacing,
+    })
+  })
+}
+
+export default {
+  namespaced: true,
+  state () {
+    return {
+      list: [],
+      nextId: 1,
+    }
+  },
+  getters: {
+    getAll: (state) => state.list,
+    // события, которые выполняются сейчас
+    getActive: (state) => state.list.filter((e) => e.status === EVENT_STATUS.ACTIVE),
+    // что объект делает сейчас (или null)
+    getCurrent: (state) => (actorId) =>
+      state.list.find((e) => e.actorId === actorId && e.status === EVENT_STATUS.ACTIVE) ?? null,
+    // все события объекта по порядку выполнения: от текущего по ссылкам nextId
+    getByActor: (state) => (actorId) => {
+      const events = state.list.filter((e) => e.actorId === actorId)
+      const result = []
+      let event = events.find((e) => !events.some((other) => other.nextId === e.id))
+      while (event) {
+        result.push(event)
+        event = events.find((e) => e.id === result[result.length - 1].nextId)
+      }
+      return result
+    },
+  },
+  mutations: {
+    [MUTATIONS.ADD]: (state, event) => {
+      state.list.push({ ...event, id: state.nextId })
+      state.nextId++
+    },
+    [MUTATIONS.REMOVE]: (state, id) => {
+      state.list = state.list.filter((e) => e.id !== id)
+    },
+    [MUTATIONS.REMOVE_BY_ACTOR]: (state, actorId) => {
+      state.list = state.list.filter((e) => e.actorId !== actorId)
+    },
+    [MUTATIONS.CLEAR]: (state) => {
+      state.list = []
+    },
+    [MUTATIONS.SET_STARTED]: (state, id) => {
+      const event = state.list.find((e) => e.id === id)
+      if (event) {
+        event.started = true
+      }
+    },
+  },
+  actions: {
+    // Новое событие объекта: прежние события этого объекта отменяются, новое начинается сразу
+    create: ({ state, commit }, { type, actorId, target = null, targetId = null }) => {
+      const id = state.nextId
+      commit(MUTATIONS.REMOVE_BY_ACTOR, actorId)
+      commit(MUTATIONS.ADD, { type, actorId, target, targetId, status: EVENT_STATUS.ACTIVE, started: false, nextId: null })
+      return id
+    },
+    // Приказ «идти в точку» группе юнитов (ПКМ игрока или событие сценария): каждому своя точка в строю
+    orderMove: ({ dispatch, rootGetters }, { actorIds, point }) => {
+      if (!rootGetters['game/isRunning'] || !Number.isFinite(point?.x) || !Number.isFinite(point?.y)) {
+        return
+      }
+      const units = actorIds.map((id) => rootGetters['world/getById'](id)).filter((unit) => unit && unit.type in UNIT_TYPES)
+      if (!units.length) {
+        return
+      }
+      const targets = formationTargets(units, point)
+      units.forEach((unit, index) => {
+        dispatch('create', { type: 'move', actorId: unit.id, target: targets[index] })
+      })
+      dispatch('startPending')
+    },
+    // Запустить новые активные события move: проложить маршрут.
+    // Юниты, начавшие движение в одном кадре, не получают одно и то же место назначения (reserved)
+    startPending: ({ getters, commit, rootGetters }) => {
+      const reserved = []
+      for (const event of getters.getActive.filter((e) => e.type === 'move' && !e.started)) {
+        commit('world/SET_UNIT_TARGET', { id: event.actorId, target: event.target, reserved }, { root: true })
+        commit(MUTATIONS.SET_STARTED, event.id)
+        const unit = rootGetters['world/getById'](event.actorId)
+        if (unit?.target) {
+          reserved.push({ ...unitFootprint(unit), position: unit.target })
+        }
+      }
+    },
+    // Каждый кадр после движения: событие move выполнено, если юнит дошёл или пути нет; юнит пропал - событие тоже
+    finishArrived: ({ getters, dispatch, rootGetters }) => {
+      for (const event of getters.getActive.filter((e) => e.type === 'move' && e.started)) {
+        const unit = rootGetters['world/getById'](event.actorId)
+        if (!unit || !unit.target) {
+          dispatch('complete', event.id)
+        }
+      }
+    },
+    // событие выполнено: удаляем его
+    complete: ({ commit }, id) => {
+      commit(MUTATIONS.REMOVE, id)
+    },
+    // отменить все события объекта (объект уничтожен)
+    cancelActor: ({ commit }, actorId) => {
+      commit(MUTATIONS.REMOVE_BY_ACTOR, actorId)
+    },
+    // сбросить все события (новый сценарий, выход в меню)
+    clear: ({ commit }) => {
+      commit(MUTATIONS.CLEAR)
+    },
+  },
+}

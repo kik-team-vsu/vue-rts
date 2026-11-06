@@ -25,6 +25,7 @@ const { SCENARIOS } = await server.ssrLoadModule('/src/game/scenarios/index.ts')
 const { default: game } = await server.ssrLoadModule('/src/store/game.js')
 const { default: worldModule } = await server.ssrLoadModule('/src/store/world.js')
 const { default: selection } = await server.ssrLoadModule('/src/store/selection.js')
+const { default: events } = await server.ssrLoadModule('/src/store/events.js')
 const { isAreaFree, isSweepFree, unitFootprint, staticFootprint, squareFootprint, overlaps, findNearestFreePosition } = spatial
 
 const unit = (id, x, y, group = 1, type = 'warrior') => ({
@@ -59,6 +60,7 @@ const makeStore = (units = [unit(1, -200, 0), unit(2, 800, 800, 2)], objects = [
       game: { ...game, state: () => gameState },
       world: { ...worldModule, state: () => worldState },
       selection,
+      events,
     },
   })
 }
@@ -179,8 +181,7 @@ test('crossing simultaneous orders keep collision invariants on every frame', ()
 
 test('group targets remain distinct when formation is clamped at a corner', async () => {
   const store = makeStore([unit(1, -100, 0), unit(2, -100, 60), unit(3, -160, 0), unit(4, -160, 60), unit(5, -800, -800, 2)])
-  store.commit('selection/SET_SELECTED_IDS', [1, 2, 3, 4])
-  await store.dispatch('world/moveSelected', { x: 1500, y: 1500 })
+  await store.dispatch('events/orderMove', { actorIds: [1, 2, 3, 4], point: { x: 1500, y: 1500 } })
   const targets = store.state.world.units.slice(0, 4).map((item) => ({ ...unitFootprint(item), position: item.target }))
   for (let i = 0; i < targets.length; i++) {
     assert.ok(targets[i].position)

@@ -1,6 +1,6 @@
 import START_UNITS, {OBJECT_TYPES, START_OBJECTS, UNIT_TYPES} from '@/game/config'
 import {SCENARIOS} from '@/game/scenarios'
-import {advanceUnits, clampUnitTarget, orderUnit} from '@/game/movement'
+import {advanceUnits, orderUnit} from '@/game/movement'
 import {isAreaFree, staticFootprint, unitFootprint} from '@/game/spatial'
 import {isFootprintTerrainPassable} from '@/game/terrain'
 
@@ -14,8 +14,6 @@ const MUTATIONS = {
     SET_UNIT_TARGET: 'SET_UNIT_TARGET',
     MOVE_UNITS: 'MOVE_UNITS',
 }
-
-const FORMATION_STEP = 40
 
 // новая постройка ставится только на сушу, новый юнит - только на свою местность
 const fitsTerrain = (state, kind, object, area) =>
@@ -86,6 +84,7 @@ export default {
             state.units = state.units.filter((u) => u.id !== id)
             state.objects = state.objects.filter((o) => o.id !== id)
         },
+        // проложить юниту маршрут к точке (вызывает стор событий при старте события move)
         [MUTATIONS.SET_UNIT_TARGET]: (state, {id, target, reserved = []}) => {
             const unit = state.units.find((u) => u.id === id)
             if (unit) {
@@ -107,10 +106,11 @@ export default {
             commit(MUTATIONS.ADD_OBJECT, payload)
             return true
         },
-        // Уничтожить объект по id: он пропадает с карты и из выбора
+        // Уничтожить объект по id: он пропадает с карты, из выбора и вместе со своими событиями
         destroyObject: ({commit, dispatch}, id) => {
             commit(MUTATIONS.REMOVE_OBJECT, id)
             dispatch('selection/deselect', id, {root: true})
+            dispatch('events/cancelActor', id, {root: true})
         },
         // Самоуничтожение выбранных юнитов
         destroySelectedUnits: ({dispatch, rootGetters}) => {
@@ -126,35 +126,6 @@ export default {
             }
             const dead = [...state.units, ...state.objects].filter((o) => o.hp !== undefined && o.hp <= 0)
             dead.forEach((o) => dispatch('destroyObject', o.id))
-        },
-        // юнит идёт в точку (приказ из сценария)
-        orderUnit: ({commit}, {id, target}) => {
-            commit(MUTATIONS.SET_UNIT_TARGET, {id, target})
-        },
-        moveSelected: ({commit, rootGetters}, point) => {
-            if (!rootGetters['game/isRunning']) {
-                return
-            }
-            const units = rootGetters['selection/getSelectedUnits']
-            if (!units.length) return
-            const columns = Math.ceil(Math.sqrt(units.length))
-            const rows = Math.ceil(units.length / columns)
-            const spacing = Math.max(FORMATION_STEP, ...units.map((unit) => UNIT_TYPES[unit.type].width + 8))
-            // В пределах приказа каждое место назначается только одному юниту
-            const reserved = []
-            units.forEach((unit, index) => {
-                const column = index % columns
-                const row = Math.floor(index / columns)
-                commit(MUTATIONS.SET_UNIT_TARGET, {
-                    id: unit.id,
-                    target: clampUnitTarget(unit, {
-                        x: point.x + (column - (columns - 1) / 2) * spacing,
-                        y: point.y + (row - (rows - 1) / 2) * spacing,
-                    }),
-                    reserved,
-                })
-                if (unit.target) reserved.push({...unitFootprint(unit), position: unit.target})
-            })
         },
         moveUnits: ({state, commit, rootState, rootGetters}, secondsPassed) => {
             if (!isActive(rootState, rootGetters)) {
