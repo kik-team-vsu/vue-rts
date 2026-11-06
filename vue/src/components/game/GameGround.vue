@@ -49,43 +49,47 @@ const zoneClass = (zone: TerrainZone) =>
 </script>
 
 <style scoped lang="scss">
+@use '@/assets/styles/mixins' as *;
+
 .ground {
   position: absolute;
-  // ромбовидная карта: поворот на 45 градусов и сжатие по вертикали на 0.5
-  transform: scaleY(0.5) rotate(45deg);
-  background-color: #4a7c3a;
+  background-color: $ground-color;
   background-image:
-      linear-gradient(to right, rgba(0, 0, 0, 0.2) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(0, 0, 0, 0.2) 1px, transparent 1px),
-      url('../../assets/grass.svg');
+    linear-gradient(to right, $grid-line-color 1px, transparent 1px),
+    linear-gradient(to bottom, $grid-line-color 1px, transparent 1px),
+    url('../../assets/grass.svg');
+
+  // ромбовидная карта
+  @include iso-flat;
 }
 
 .terrain-zone {
   position: absolute;
+
   // как у .ground: ромбовидная зона в изометрии
-  transform: scaleY(0.5) rotate(45deg);
+  @include iso-flat;
 
   // озеро: спокойная глубокая вода
   &--lake {
-    background-color: #2563eb;
+    background-color: $water-color;
     background-image: url('../../assets/lake.svg');
   }
 
   // река: та же вода, но плитка с полосами течения
   &--river {
-    background-color: #2563eb;
+    background-color: $water-color;
     background-image: url('../../assets/river.svg');
   }
 
   // вертикальная река: та же плитка, течение вдоль оси y
   &--river-v {
-    background-color: #2563eb;
+    background-color: $water-color;
     background-image: url('../../assets/river-vertical.svg');
   }
 
   // песок: декоративный берег, проходим как суша
   &--sand {
-    background-color: #cfb684;
+    background-color: $sand-color;
     background-image: url('../../assets/sand.svg');
   }
 

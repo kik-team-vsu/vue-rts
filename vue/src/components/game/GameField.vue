@@ -313,12 +313,14 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
+@use '@/assets/styles/mixins' as *;
+
 .screen-view {
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #1a1a1a;
+  background: $field-background;
   user-select: none;
 }
 
@@ -360,9 +362,8 @@ onUnmounted(() => {
 
 .selection-box {
   position: absolute;
-  border: 1px solid #fff;
-  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid $selected-color;
+  background: rgba($selected-color, 0.15);
   pointer-events: none;
 }
-
 </style>

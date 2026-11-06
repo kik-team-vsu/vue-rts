@@ -134,15 +134,17 @@ const unitAction = computed(() => {
 </script>
 
 <style scoped lang="scss">
+@use '@/assets/styles/mixins' as *;
+
 .info-panel {
   position: absolute;
   left: 30px;
   bottom: 30px;
   min-width: 200px;
   padding: 10px 14px;
-  background: rgba(0, 0, 0, 0.7);
-  color: #fff;
-  border-radius: 6px;
+  background: $panel-background;
+  color: $panel-text-color;
+  border-radius: $panel-radius;
   pointer-events: none;
 }
 

@@ -44,6 +44,8 @@ const run = (command: Command) => {
 </script>
 
 <style scoped lang="scss">
+@use '@/assets/styles/mixins' as *;
+
 .command-panel {
   position: absolute;
   right: 30px;
@@ -52,19 +54,19 @@ const run = (command: Command) => {
   flex-direction: column;
   gap: 8px;
   padding: 10px 14px;
-  background: rgba(0, 0, 0, 0.7);
-  border-radius: 6px;
+  background: $panel-background;
+  border-radius: $panel-radius;
 
   &__button {
     padding: 6px 12px;
     border: 0;
-    border-radius: 4px;
-    background: #dc2626;
-    color: #fff;
+    border-radius: $button-radius;
+    background: $danger-color;
+    color: $panel-text-color;
     cursor: pointer;
 
     &:hover {
-      background: #b91c1c;
+      background: $danger-color-hover;
     }
   }
 }

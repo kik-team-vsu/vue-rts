@@ -232,6 +232,11 @@ const style = computed(() => {
 </script>
 
 <style scoped lang="scss">
+@use '@/assets/styles/mixins' as *;
+
+// углы шага ног для двух кадров анимации
+$leg-step: 25deg;
+
 .game-unit {
   position: absolute;
   cursor: pointer;
@@ -244,45 +249,33 @@ const style = computed(() => {
   width: 100%;
   aspect-ratio: 2 / 1;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.3);
+  background: $shadow-color;
   transform: translateY(50%);
 }
 
 .leg {
-  position: absolute;
   bottom: 0;
-  width: 4px;
-  height: 32%;
-  border-radius: 2px;
-  background: #000;
-  transform-origin: top center;
+
+  @include limb(32%);
 
   &.left {
     left: 25%;
-    --step-a: 25deg;
-    --step-b: -25deg;
+    --step-a: #{$leg-step};
+    --step-b: #{-$leg-step};
   }
 
   &.right {
     right: 25%;
-    --step-a: -25deg;
-    --step-b: 25deg;
-  }
-
-  .selected > & {
-    background: #fff;
+    --step-a: #{-$leg-step};
+    --step-b: #{$leg-step};
   }
 }
 
 // Руки вращаются вокруг плеч
 .arm {
-  position: absolute;
   top: 34%;
-  width: 4px;
-  height: 34%;
-  border-radius: 2px;
-  background: #000;
-  transform-origin: top center;
+
+  @include limb(34%);
 
   &.left {
     left: 0;
@@ -296,10 +289,6 @@ const style = computed(() => {
     transform: rotate(-25deg);
     --step-a: -50deg;
     --step-b: -5deg;
-  }
-
-  .selected > & {
-    background: #fff;
   }
 }
 
@@ -322,19 +311,14 @@ const style = computed(() => {
 .body,
 .head {
   position: absolute;
-  box-sizing: border-box;
-  border: 2px solid rgba(0, 0, 0, 1);
-  border-radius: 50%;
   background-image: radial-gradient(
     circle at 35% 28%,
-    rgba(255, 255, 255, 0.6) 0%,
-    rgba(255, 255, 255, 0) 40%,
-    rgba(0, 0, 0, 0.4) 100%
+    rgba($selected-color, 0.6) 0%,
+    rgba($selected-color, 0) 40%,
+    rgba($outline-color, 0.4) 100%
   );
 
-  .selected > & {
-    border-color: #fff;
-  }
+  @include outlined(50%);
 }
 
 .body {
@@ -393,7 +377,7 @@ const style = computed(() => {
   width: 14px;
   height: 10px;
   clip-path: polygon(0 0, 100% 0, 60% 50%, 100% 100%, 0 100%);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 1px rgba($outline-color, 0.5);
 }
 
 // Труба корабля: вертикальный цилиндр и дым над ним
@@ -401,7 +385,7 @@ const style = computed(() => {
   width: 12px;
   height: 30px;
   margin-left: -6px;
-  border: 1px solid rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba($outline-color, 0.6);
   border-top: 4px solid #111827;
   border-radius: 3px 3px 0 0;
   background: linear-gradient(to right, #374151, #9ca3af, #374151);

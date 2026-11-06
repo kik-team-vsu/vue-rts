@@ -107,7 +107,8 @@ const faces = computed(() => {
 </script>
 
 <style scoped lang="scss">
-@use '@/assets/iso-faces';
+@use '@/assets/styles/mixins' as *;
+@use '@/assets/styles/iso-faces';
 
 .game-static-object {
   position: absolute;
@@ -118,6 +119,6 @@ const faces = computed(() => {
 
 // та же изометрия для ромбовидности
 .top {
-  transform: scaleY(0.5) rotate(45deg);
+  @include iso-flat;
 }
 </style>
