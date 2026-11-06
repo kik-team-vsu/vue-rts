@@ -39,6 +39,8 @@ const branches = computed(() => {
 </script>
 
 <style scoped lang="scss">
+@use '@/assets/styles/mixins' as *;
+
 .branch {
   position: absolute;
   left: 0;
@@ -48,8 +50,6 @@ const branches = computed(() => {
   transform-origin: 0 50%;
 
   // для выделения веток
-  .selected > & {
-    box-shadow: 0 0 0 2px #fff;
-  }
+  @include when-selected(box-shadow, 0 0 0 $outline-width $selected-color);
 }
 </style>
