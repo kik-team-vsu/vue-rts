@@ -68,12 +68,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useStore } from 'vuex'
 import GameStaticObject from './GameStaticObject.vue'
 import GameUnit from './GameUnit.vue'
 import { CAMERA, MAP, OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
-import { clampToMap, screenToWorld, worldToScreen } from '@/game/coords'
+import { screenToWorld, worldToScreen } from '@/game/coords'
 import type { Point, StaticObject, TerrainZone, Unit } from '@/game/types'
 
 interface Box {
@@ -83,10 +83,12 @@ interface Box {
   height: number
 }
 
+// рамка считается рамкой, только если мышь заметно сдвинули, иначе это обычный клик
+const MIN_SELECTION_PX = 5
+
 // перетаскивание камеры средней кнопкой мыши
 let dragging = false
 let dragLast: Point = { x: 0, y: 0 }
-let dragCurrent: Point = { x: 0, y: 0 }
 
 // объекты, юниты и выбор хранятся в store
 const store = useStore()
@@ -99,8 +101,10 @@ const selectedUnits = computed<Unit[]>(() => store.getters['selection/getSelecte
 const paused = computed<boolean>(() => store.getters['game/getPaused'])
 const isRunning = computed<boolean>(() => store.getters['game/isRunning'])
 const screenView = ref<HTMLElement | null>(null)
-const camera = reactive({ x: 0, y: 0 })
-const mouse = { x: 0, y: 0, inside: false }
+// камера живёт в сторе camera, игровой цикл - в сторе engine
+const camera = computed<Point>(() => store.getters['camera/getPosition'])
+// положение курсора внутри окна игры
+const mouse = { x: 0, y: 0 }
 
 // выделение рамкой юнитов
 let selectStart: Point | null = null
@@ -109,7 +113,7 @@ let selectAdditive = false
 const selectionBox = ref<Box | null>(null)
 
 const worldStyle = computed(() => ({
-  transform: `translate(${-camera.x}px, ${-camera.y}px)`,
+  transform: `translate(${-camera.value.x}px, ${-camera.value.y}px)`,
 }))
 
 const groundStyle = {
@@ -184,8 +188,30 @@ const selectionBoxStyle = computed(() => {
 const toWorld = (e: MouseEvent): Point => {
   const rect = screenView.value!.getBoundingClientRect()
   return screenToWorld({
-    x: e.clientX - rect.left - rect.width / 2 + camera.x,
-    y: e.clientY - rect.top - rect.height / 2 + camera.y,
+    x: e.clientX - rect.left - rect.width / 2 + camera.value.x,
+    y: e.clientY - rect.top - rect.height / 2 + camera.value.y,
+  })
+}
+
+// курсор у края экрана двигает камеру: сообщаем стору направление, сдвиг считает игровой цикл
+const updateEdgeScroll = () => {
+  const view = screenView.value
+  if (!view || dragging) {
+    store.dispatch('camera/setEdgeScroll', { x: 0, y: 0 })
+    return
+  }
+  const direction = (position: number, size: number) => {
+    if (position < CAMERA.edgePx) {
+      return -1
+    }
+    if (position > size - CAMERA.edgePx) {
+      return 1
+    }
+    return 0
+  }
+  store.dispatch('camera/setEdgeScroll', {
+    x: direction(mouse.x, view.clientWidth),
+    y: direction(mouse.y, view.clientHeight),
   })
 }
 
@@ -194,21 +220,16 @@ const saveMouse = (e: MouseEvent) => {
   const rect = screenView.value!.getBoundingClientRect()
   mouse.x = e.clientX - rect.left
   mouse.y = e.clientY - rect.top
-  mouse.inside = true
+  updateEdgeScroll()
+  updateSelectionBox()
 }
 
 const resetMouse = () => {
-  mouse.inside = false
+  store.dispatch('camera/setEdgeScroll', { x: 0, y: 0 })
 }
 
 const moveSelected = (e: MouseEvent) => {
   store.dispatch('world/moveSelected', toWorld(e))
-}
-
-const clampCamera = () => {
-  const point = worldToScreen(clampToMap(screenToWorld(camera)))
-  camera.x = point.x
-  camera.y = point.y
 }
 
 const select = (id: number | null) => {
@@ -245,7 +266,7 @@ const startSelect = (e: MouseEvent) => {
   selectAdditive = e.shiftKey
 }
 
-// раз в кадр обновляем рамку на экране
+// рамка на экране обновляется при движении мыши
 const updateSelectionBox = () => {
   if (!selectStart) {
     return
@@ -274,8 +295,8 @@ const finishSelect = () => {
   const ids = units.value
     .filter((u) => {
       const point = worldToScreen(u.position)
-      const x = point.x - camera.x + width / 2
-      const y = point.y - camera.y + height / 2 - UNIT_TYPES[u.type].height / 2
+      const x = point.x - camera.value.x + width / 2
+      const y = point.y - camera.value.y + height / 2 - UNIT_TYPES[u.type].height / 2
       return x >= box.left && x <= box.left + box.width && y >= box.top && y <= box.top + box.height
     })
     .map((u) => u.id)
@@ -285,14 +306,15 @@ const finishSelect = () => {
 const startDrag = (e: MouseEvent) => {
   dragging = true
   dragLast = { x: e.clientX, y: e.clientY }
-  dragCurrent = dragLast
+  updateEdgeScroll()
 }
 
 const onWindowMouseMove = (e: MouseEvent) => {
   if (!dragging) {
     return
   }
-  dragCurrent = { x: e.clientX, y: e.clientY }
+  store.dispatch('camera/moveBy', { x: dragLast.x - e.clientX, y: dragLast.y - e.clientY })
+  dragLast = { x: e.clientX, y: e.clientY }
 }
 
 const onWindowMouseUp = (e: MouseEvent) => {
@@ -300,79 +322,21 @@ const onWindowMouseUp = (e: MouseEvent) => {
     finishSelect()
   }
   if (e.button === 1) {
-    // применяем сдвиг, накопленный после последнего кадра
-    dragCamera()
     dragging = false
   }
 }
 
-const dragCamera = () => {
-  if (!dragging) {
-    return
-  }
-  camera.x -= dragCurrent.x - dragLast.x
-  camera.y -= dragCurrent.y - dragLast.y
-  dragLast = dragCurrent
-  clampCamera()
-}
-
-const moveCamera = (secondsPassed: number) => {
-  if (!screenView.value || !mouse.inside || dragging) {
-    return
-  }
-
-  const width = screenView.value.clientWidth
-  const height = screenView.value.clientHeight
-  const step = CAMERA.speedPxPerSecond * secondsPassed
-
-  if (mouse.x < CAMERA.edgePx) {
-    camera.x -= step
-  }
-  if (mouse.x > width - CAMERA.edgePx) {
-    camera.x += step
-  }
-  if (mouse.y < CAMERA.edgePx) {
-    camera.y -= step
-  }
-  if (mouse.y > height - CAMERA.edgePx) {
-    camera.y += step
-  }
-
-  clampCamera()
-}
-
-let frameId = 0
-let lastTime = 0
-
-const MIN_SELECTION_PX = 5
-const MILLIS_IN_SECOND = 1000
-const MAX_FRAME_SECONDS = 0.1
-
-const tick = (time: number) => {
-  const secondsPassed = Math.min((time - lastTime) / MILLIS_IN_SECOND, MAX_FRAME_SECONDS)
-  lastTime = time
-
-  dragCamera()
-  moveCamera(secondsPassed)
-  updateSelectionBox()
-  store.dispatch('game/runScenarioEvents', secondsPassed)
-  store.dispatch('world/moveUnits', secondsPassed)
-  store.dispatch('world/removeDead')
-
-  frameId = requestAnimationFrame(tick)
-}
-
 // компонент появился на странице - запускаем игровой цикл
 onMounted(() => {
-  lastTime = performance.now()
-  frameId = requestAnimationFrame(tick)
+  store.dispatch('engine/start')
   window.addEventListener('mousemove', onWindowMouseMove)
   window.addEventListener('mouseup', onWindowMouseUp)
 })
 
 // если ушли со страницы игры - останавливаем цикл
 onUnmounted(() => {
-  cancelAnimationFrame(frameId)
+  store.dispatch('engine/stop')
+  store.dispatch('camera/setEdgeScroll', { x: 0, y: 0 })
   window.removeEventListener('mousemove', onWindowMouseMove)
   window.removeEventListener('mouseup', onWindowMouseUp)
 })
