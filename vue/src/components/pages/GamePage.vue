@@ -14,7 +14,7 @@ import CommandPanel from '../game/CommandPanel.vue'
 import GameControls from '../game/GameControls.vue'
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .game-page {
   position: fixed;
   inset: 0;
