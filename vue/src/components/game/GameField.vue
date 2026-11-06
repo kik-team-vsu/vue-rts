@@ -10,15 +10,7 @@
       @mouseleave="() => resetMouse()">
 
     <div class="world" :style="worldStyle">
-      <div class="ground" :style="groundStyle" />
-
-      <!-- зоны местности: тот же поворот и сжатие, что у земли -->
-      <div
-          v-for="(zone, index) in terrainZones"
-          :key="'terrain-' + index"
-          class="terrain-zone"
-          :class="zoneClass(zone)"
-          :style="zoneStyle(zone)" />
+      <GameGround />
 
       <div class="objects-layer">
         <!-- уничтоженный объект не пропадает сразу, а проигрывает анимацию destroy -->
@@ -33,14 +25,8 @@
         </TransitionGroup>
       </div>
 
-      <!-- линии пути выбранных юнитов -->
-      <template v-for="order in orders" :key="order.id">
-        <div
-            v-for="(style, index) in order.pathStyles"
-            :key="index"
-            class="path-line"
-            :style="style" />
-      </template>
+      <!-- приказы выбранных юнитов: путь и точка назначения -->
+      <UnitOrders />
 
       <TransitionGroup name="destroy">
         <GameUnit
@@ -52,12 +38,6 @@
             @select="(additive) => selectUnit(u.id, additive)"/>
       </TransitionGroup>
 
-      <div
-          v-for="order in orders"
-          :key="order.id"
-          class="target-mark"
-          :style="order.targetStyle" />
-
     </div>
 
     <div
@@ -68,13 +48,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useStore } from 'vuex'
+import GameGround from './GameGround.vue'
 import GameStaticObject from './GameStaticObject.vue'
 import GameUnit from './GameUnit.vue'
-import { CAMERA, MAP, OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
-import { clampToMap, screenToWorld, worldToScreen } from '@/game/coords'
-import type { Point, StaticObject, TerrainZone, Unit } from '@/game/types'
+import UnitOrders from './UnitOrders.vue'
+import { CAMERA, OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
+import { screenToWorld, worldToScreen } from '@/game/coords'
+import type { Point, StaticObject, Unit } from '@/game/types'
 
 interface Box {
   left: number
@@ -83,24 +65,29 @@ interface Box {
   height: number
 }
 
+// рамка считается рамкой, только если мышь заметно сдвинули, иначе это обычный клик
+const MIN_SELECTION_PX = 5
+
 // перетаскивание камеры средней кнопкой мыши
 let dragging = false
 let dragLast: Point = { x: 0, y: 0 }
-let dragCurrent: Point = { x: 0, y: 0 }
 
-// объекты, юниты и выбор хранятся в store
+// Окно игры: принимает ввод мыши и передаёт его в стор (выбор, приказы, камера).
+// Игровой логики здесь нет: элементы карты, события и камера живут в сторе, а рисуют их дочерние компоненты.
+// Объекты и юниты передаются пропсами: уничтоженный объект ещё проигрывает анимацию destroy со своими последними данными
 const store = useStore()
-const objects = computed<StaticObject[]>(() => store.getters['game/getObjects'])
-const units = computed<Unit[]>(() => store.getters['game/getUnits'])
-const terrainZones = computed<TerrainZone[]>(() => store.state.game.terrainZones)
-const selectedIds = computed<number[]>(() => store.getters['game/getSelectedIds'])
-const selectedUnits = computed<Unit[]>(() => store.getters['game/getSelectedUnits'])
+const objects = computed<StaticObject[]>(() => store.getters['world/getObjects'])
+const units = computed<Unit[]>(() => store.getters['world/getUnits'])
+const selectedIds = computed<number[]>(() => store.getters['selection/getSelectedIds'])
+const selectedUnits = computed<Unit[]>(() => store.getters['selection/getSelectedUnits'])
 
 const paused = computed<boolean>(() => store.getters['game/getPaused'])
 const isRunning = computed<boolean>(() => store.getters['game/isRunning'])
 const screenView = ref<HTMLElement | null>(null)
-const camera = reactive({ x: 0, y: 0 })
-const mouse = { x: 0, y: 0, inside: false }
+// камера живёт в сторе camera, игровой цикл - в сторе engine
+const camera = computed<Point>(() => store.getters['camera/getPosition'])
+// положение курсора внутри окна игры
+const mouse = { x: 0, y: 0 }
 
 // выделение рамкой юнитов
 let selectStart: Point | null = null
@@ -109,64 +96,9 @@ let selectAdditive = false
 const selectionBox = ref<Box | null>(null)
 
 const worldStyle = computed(() => ({
-  transform: `translate(${-camera.x}px, ${-camera.y}px)`,
+  transform: `translate(${-camera.value.x}px, ${-camera.value.y}px)`,
 }))
 
-const groundStyle = {
-  left: -MAP.width / 2 + 'px',
-  top: -MAP.height / 2 + 'px',
-  width: MAP.width + 'px',
-  height: MAP.height + 'px',
-  backgroundSize: `${MAP.cell}px ${MAP.cell}px, ${MAP.cell}px ${MAP.cell}px, 256px 256px`,
-}
-
-// зона местности в мировых координатах.
-// Точка поворота - центр карты (мировой ноль), как у .ground, иначе зона съедет:
-// в локальных координатах зоны мировой ноль лежит в (-zone.x, -zone.y)
-const zoneStyle = (zone: TerrainZone) => ({
-  left: zone.x + 'px',
-  top: zone.y + 'px',
-  width: zone.width + 'px',
-  height: zone.height + 'px',
-  transformOrigin: `${-zone.x}px ${-zone.y}px`,
-})
-
-// класс зоны: у реки течение вдоль длинной стороны зоны,
-// узкая и высокая зона получает плитку с вертикальным течением
-const zoneClass = (zone: TerrainZone) =>
-  zone.type === 'river' && zone.height > zone.width
-    ? 'terrain-zone--river-v'
-    : 'terrain-zone--' + zone.type
-
-const orders = computed(() => {
-  const result = []
-  for (const unit of selectedUnits.value) {
-    if (unit.target) {
-      // ломаная от юнита через точки пути до цели
-      const points = [unit.position, ...(unit.path ?? [unit.target])].map(worldToScreen)
-      const to = points[points.length - 1]
-      result.push({
-        id: unit.id,
-        targetStyle: {
-          left: to.x + 'px',
-          top: to.y + 'px',
-        },
-        pathStyles: points.slice(1).map((point, index) => {
-          const from = points[index]
-          const dx = point.x - from.x
-          const dy = point.y - from.y
-          return {
-            left: from.x + 'px',
-            top: from.y + 'px',
-            width: Math.hypot(dx, dy) + 'px',
-            transform: `rotate(${Math.atan2(dy, dx)}rad)`,
-          }
-        }),
-      })
-    }
-  }
-  return result
-})
 
 const selectionBoxStyle = computed(() => {
   const box = selectionBox.value
@@ -184,8 +116,30 @@ const selectionBoxStyle = computed(() => {
 const toWorld = (e: MouseEvent): Point => {
   const rect = screenView.value!.getBoundingClientRect()
   return screenToWorld({
-    x: e.clientX - rect.left - rect.width / 2 + camera.x,
-    y: e.clientY - rect.top - rect.height / 2 + camera.y,
+    x: e.clientX - rect.left - rect.width / 2 + camera.value.x,
+    y: e.clientY - rect.top - rect.height / 2 + camera.value.y,
+  })
+}
+
+// курсор у края экрана двигает камеру: сообщаем стору направление, сдвиг считает игровой цикл
+const updateEdgeScroll = () => {
+  const view = screenView.value
+  if (!view || dragging) {
+    store.dispatch('camera/setEdgeScroll', { x: 0, y: 0 })
+    return
+  }
+  const direction = (position: number, size: number) => {
+    if (position < CAMERA.edgePx) {
+      return -1
+    }
+    if (position > size - CAMERA.edgePx) {
+      return 1
+    }
+    return 0
+  }
+  store.dispatch('camera/setEdgeScroll', {
+    x: direction(mouse.x, view.clientWidth),
+    y: direction(mouse.y, view.clientHeight),
   })
 }
 
@@ -194,30 +148,29 @@ const saveMouse = (e: MouseEvent) => {
   const rect = screenView.value!.getBoundingClientRect()
   mouse.x = e.clientX - rect.left
   mouse.y = e.clientY - rect.top
-  mouse.inside = true
+  updateEdgeScroll()
+  updateSelectionBox()
 }
 
 const resetMouse = () => {
-  mouse.inside = false
+  store.dispatch('camera/setEdgeScroll', { x: 0, y: 0 })
 }
 
+// ПКМ: приказ выбранным юнитам идти в точку - создаётся событие move
 const moveSelected = (e: MouseEvent) => {
-  store.dispatch('game/moveSelected', toWorld(e))
-}
-
-const clampCamera = () => {
-  const point = worldToScreen(clampToMap(screenToWorld(camera)))
-  camera.x = point.x
-  camera.y = point.y
+  store.dispatch('events/orderMove', {
+    actorIds: selectedUnits.value.map((u) => u.id),
+    point: toWorld(e),
+  })
 }
 
 const select = (id: number | null) => {
-  store.dispatch('game/select', id)
+  store.dispatch('selection/select', id)
 }
 
 const selectUnit = (id: number, additive: boolean) => {
   if (additive) {
-    store.dispatch('game/toggleSelect', id)
+    store.dispatch('selection/toggleSelect', id)
   }
   else {
     select(id)
@@ -245,7 +198,7 @@ const startSelect = (e: MouseEvent) => {
   selectAdditive = e.shiftKey
 }
 
-// раз в кадр обновляем рамку на экране
+// рамка на экране обновляется при движении мыши
 const updateSelectionBox = () => {
   if (!selectStart) {
     return
@@ -274,25 +227,26 @@ const finishSelect = () => {
   const ids = units.value
     .filter((u) => {
       const point = worldToScreen(u.position)
-      const x = point.x - camera.x + width / 2
-      const y = point.y - camera.y + height / 2 - UNIT_TYPES[u.type].height / 2
+      const x = point.x - camera.value.x + width / 2
+      const y = point.y - camera.value.y + height / 2 - UNIT_TYPES[u.type].height / 2
       return x >= box.left && x <= box.left + box.width && y >= box.top && y <= box.top + box.height
     })
     .map((u) => u.id)
-  store.dispatch(selectAdditive ? 'game/addToSelection' : 'game/selectMany', ids)
+  store.dispatch(selectAdditive ? 'selection/addToSelection' : 'selection/selectMany', ids)
 }
 
 const startDrag = (e: MouseEvent) => {
   dragging = true
   dragLast = { x: e.clientX, y: e.clientY }
-  dragCurrent = dragLast
+  updateEdgeScroll()
 }
 
 const onWindowMouseMove = (e: MouseEvent) => {
   if (!dragging) {
     return
   }
-  dragCurrent = { x: e.clientX, y: e.clientY }
+  store.dispatch('camera/moveBy', { x: dragLast.x - e.clientX, y: dragLast.y - e.clientY })
+  dragLast = { x: e.clientX, y: e.clientY }
 }
 
 const onWindowMouseUp = (e: MouseEvent) => {
@@ -300,79 +254,21 @@ const onWindowMouseUp = (e: MouseEvent) => {
     finishSelect()
   }
   if (e.button === 1) {
-    // применяем сдвиг, накопленный после последнего кадра
-    dragCamera()
     dragging = false
   }
 }
 
-const dragCamera = () => {
-  if (!dragging) {
-    return
-  }
-  camera.x -= dragCurrent.x - dragLast.x
-  camera.y -= dragCurrent.y - dragLast.y
-  dragLast = dragCurrent
-  clampCamera()
-}
-
-const moveCamera = (secondsPassed: number) => {
-  if (!screenView.value || !mouse.inside || dragging) {
-    return
-  }
-
-  const width = screenView.value.clientWidth
-  const height = screenView.value.clientHeight
-  const step = CAMERA.speedPxPerSecond * secondsPassed
-
-  if (mouse.x < CAMERA.edgePx) {
-    camera.x -= step
-  }
-  if (mouse.x > width - CAMERA.edgePx) {
-    camera.x += step
-  }
-  if (mouse.y < CAMERA.edgePx) {
-    camera.y -= step
-  }
-  if (mouse.y > height - CAMERA.edgePx) {
-    camera.y += step
-  }
-
-  clampCamera()
-}
-
-let frameId = 0
-let lastTime = 0
-
-const MIN_SELECTION_PX = 5
-const MILLIS_IN_SECOND = 1000
-const MAX_FRAME_SECONDS = 0.1
-
-const tick = (time: number) => {
-  const secondsPassed = Math.min((time - lastTime) / MILLIS_IN_SECOND, MAX_FRAME_SECONDS)
-  lastTime = time
-
-  dragCamera()
-  moveCamera(secondsPassed)
-  updateSelectionBox()
-  store.dispatch('game/runScenarioEvents', secondsPassed)
-  store.dispatch('game/moveUnits', secondsPassed)
-  store.dispatch('game/removeDead')
-
-  frameId = requestAnimationFrame(tick)
-}
-
 // компонент появился на странице - запускаем игровой цикл
 onMounted(() => {
-  lastTime = performance.now()
-  frameId = requestAnimationFrame(tick)
+  store.dispatch('engine/start')
   window.addEventListener('mousemove', onWindowMouseMove)
   window.addEventListener('mouseup', onWindowMouseUp)
 })
 
 // если ушли со страницы игры - останавливаем цикл
 onUnmounted(() => {
-  cancelAnimationFrame(frameId)
+  store.dispatch('engine/stop')
+  store.dispatch('camera/setEdgeScroll', { x: 0, y: 0 })
   window.removeEventListener('mousemove', onWindowMouseMove)
   window.removeEventListener('mouseup', onWindowMouseUp)
 })
@@ -401,55 +297,9 @@ onUnmounted(() => {
   height: 0;
 }
 
-.ground {
-  position: absolute;
-  // ромбовидная карта: поворот на 45 градусов и сжатие по вертикали на 0.5
-  transform: scaleY(0.5) rotate(45deg);
-  background-color: #4a7c3a;
-  background-image:
-      linear-gradient(to right, rgba(0, 0, 0, 0.2) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(0, 0, 0, 0.2) 1px, transparent 1px),
-      url('../../assets/grass.svg');
-}
-
 .objects-layer {
   position: absolute;
   z-index: 0;
-}
-
-.terrain-zone {
-  position: absolute;
-  // как у .ground: ромбовидная зона в изометрии
-  transform: scaleY(0.5) rotate(45deg);
-
-  // озеро: спокойная глубокая вода
-  &--lake {
-    background-color: #2563eb;
-    background-image: url('../../assets/lake.svg');
-  }
-
-  // река: та же вода, но плитка с полосами течения
-  &--river {
-    background-color: #2563eb;
-    background-image: url('../../assets/river.svg');
-  }
-
-  // вертикальная река: та же плитка, течение вдоль оси y
-  &--river-v {
-    background-color: #2563eb;
-    background-image: url('../../assets/river-vertical.svg');
-  }
-
-  // песок: декоративный берег, проходим как суша
-  &--sand {
-    background-color: #cfb684;
-    background-image: url('../../assets/sand.svg');
-  }
-
-  // горы: непроходимая скалистая местность с пиками
-  &--mountain {
-    background-image: url('../../assets/mountain.svg');
-  }
 }
 
 // уничтожение: объект сжимается к основанию и исчезает
@@ -470,15 +320,6 @@ onUnmounted(() => {
   }
 }
 
-.path-line {
-  position: absolute;
-  height: 0;
-  margin-top: -1px;
-  border-top: 2px dashed rgba(255, 255, 255, 0.7);
-  transform-origin: left center;
-  pointer-events: none;
-}
-
 .selection-box {
   position: absolute;
   border: 1px solid #fff;
@@ -486,13 +327,4 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-.target-mark {
-  position: absolute;
-  width: 16px;
-  height: 8px;
-  margin: -4px 0 0 -8px;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  pointer-events: none;
-}
 </style>

@@ -23,6 +23,9 @@ const { isBlocked, isSegmentFree } = await server.ssrLoadModule('/src/game/obsta
 const { orderUnit, advanceUnits } = await server.ssrLoadModule('/src/game/movement.ts')
 const { SCENARIOS } = await server.ssrLoadModule('/src/game/scenarios/index.ts')
 const { default: game } = await server.ssrLoadModule('/src/store/game.js')
+const { default: worldModule } = await server.ssrLoadModule('/src/store/world.js')
+const { default: selection } = await server.ssrLoadModule('/src/store/selection.js')
+const { default: events } = await server.ssrLoadModule('/src/store/events.js')
 const { isAreaFree, isSweepFree, unitFootprint, staticFootprint, squareFootprint, overlaps, findNearestFreePosition } = spatial
 
 const unit = (id, x, y, group = 1, type = 'warrior') => ({
@@ -49,8 +52,17 @@ const simulate = (state, frames = 600, delta = 1 / 60) => {
 }
 const makeStore = (units = [unit(1, -200, 0), unit(2, 800, 800, 2)], objects = []) => {
   // столкновения проверяем на чистой суше: местность сценариев здесь не нужна
-  const state = { ...game.state(), units, objects, terrainZones: [], started: true }
-  return createStore({ strict: true, modules: { game: { ...game, state: () => state } } })
+  const worldState = { ...worldModule.state(), units, objects, terrainZones: [] }
+  const gameState = { ...game.state(), started: true }
+  return createStore({
+    strict: true,
+    modules: {
+      game: { ...game, state: () => gameState },
+      world: { ...worldModule, state: () => worldState },
+      selection,
+      events,
+    },
+  })
 }
 
 test('footprints use ground dimensions; touching edges do not overlap', () => {
@@ -169,31 +181,30 @@ test('crossing simultaneous orders keep collision invariants on every frame', ()
 
 test('group targets remain distinct when formation is clamped at a corner', async () => {
   const store = makeStore([unit(1, -100, 0), unit(2, -100, 60), unit(3, -160, 0), unit(4, -160, 60), unit(5, -800, -800, 2)])
-  store.commit('game/SET_SELECTED_IDS', [1, 2, 3, 4])
-  await store.dispatch('game/moveSelected', { x: 1500, y: 1500 })
-  const targets = store.state.game.units.slice(0, 4).map((item) => ({ ...unitFootprint(item), position: item.target }))
+  await store.dispatch('events/orderMove', { actorIds: [1, 2, 3, 4], point: { x: 1500, y: 1500 } })
+  const targets = store.state.world.units.slice(0, 4).map((item) => ({ ...unitFootprint(item), position: item.target }))
   for (let i = 0; i < targets.length; i++) {
     assert.ok(targets[i].position)
     for (let j = i + 1; j < targets.length; j++) assert.equal(overlaps(targets[i], targets[j]), false)
   }
   for (let i = 0; i < 600; i++) {
-    store.commit('game/MOVE_UNITS', 0.1)
-    assertValid(store.state.game)
+    store.commit('world/MOVE_UNITS', 0.1)
+    assertValid(store.state.world)
   }
-  assert.ok(store.state.game.units.slice(0, 4).every((item) => item.target === null))
+  assert.ok(store.state.world.units.slice(0, 4).every((item) => item.target === null))
 })
 
 test('a newly placed building blocks an existing path and triggers a safe detour', async () => {
   const store = makeStore()
-  store.commit('game/SET_UNIT_TARGET', { id: 1, target: { x: 250, y: 0 } })
-  store.commit('game/MOVE_UNITS', 0.1)
-  assert.equal(await store.dispatch('game/addObject', { kind: 'static', object: object(3, 0, 0) }), true)
+  store.commit('world/SET_UNIT_TARGET', { id: 1, target: { x: 250, y: 0 } })
+  store.commit('world/MOVE_UNITS', 0.1)
+  assert.equal(await store.dispatch('world/addObject', { kind: 'static', object: object(3, 0, 0) }), true)
   for (let i = 0; i < 600; i++) {
-    store.commit('game/MOVE_UNITS', 1 / 60)
-    assertValid(store.state.game)
+    store.commit('world/MOVE_UNITS', 1 / 60)
+    assertValid(store.state.world)
   }
-  assert.equal(store.state.game.units[0].target, null)
-  assert.deepEqual({ ...store.state.game.units[0].position }, { x: 250, y: 0 })
+  assert.equal(store.state.world.units[0].target, null)
+  assert.deepEqual({ ...store.state.world.units[0].position }, { x: 250, y: 0 })
 })
 
 test('temporary unreachable blockage keeps the order and resumes when the wall is removed', () => {
@@ -220,7 +231,7 @@ test('many independent orders into one destination settle without overlap', () =
 
 test('spawn/build additions reject overlap, duplicate IDs, invalid types and out-of-bounds', async () => {
   const store = makeStore()
-  const add = (kind, item) => store.dispatch('game/addObject', { kind, object: item })
+  const add = (kind, item) => store.dispatch('world/addObject', { kind, object: item })
   assert.equal(await add('unit', unit(3, -200, 0)), false)
   assert.equal(await add('static', object(3, -200, 0)), false)
   assert.equal(await add('static', object(3, 1490, 0)), false)
@@ -229,53 +240,53 @@ test('spawn/build additions reject overlap, duplicate IDs, invalid types and out
   assert.equal(await add('static', object(3, 400, 400)), true)
   assert.equal(await add('unit', unit(4, 400, 400)), false)
   assert.equal(await add('static', object(5, 500, 400)), true)
-  assertValid(store.state.game)
+  assertValid(store.state.world)
 })
 
 test('addObject accepts Vue reactive requests and copies the position', async () => {
   const store = makeStore()
   const request = reactive({ kind: 'unit', object: unit(3, 400, 400) })
 
-  assert.equal(await store.dispatch('game/addObject', request), true)
+  assert.equal(await store.dispatch('world/addObject', request), true)
   request.object.position.x = 600
   request.object.hp = 1
 
-  const created = store.state.game.units.find((item) => item.id === 3)
+  const created = store.state.world.units.find((item) => item.id === 3)
   assert.equal(created.position.x, 400)
   assert.equal(created.hp, 50)
   assert.equal(created.target, null)
-  assertValid(store.state.game)
+  assertValid(store.state.world)
 })
 
 test('removing a unit or building immediately frees its footprint', async () => {
   const store = makeStore([unit(1, -200, 0), unit(2, 800, 800, 2), unit(5, -800, 800)])
-  const area = unitFootprint(store.state.game.units[0])
-  assert.equal(isAreaFree(store.state.game, area), false)
-  await store.dispatch('game/destroyObject', 1)
-  assert.equal(isAreaFree(store.state.game, area), true)
+  const area = unitFootprint(store.state.world.units[0])
+  assert.equal(isAreaFree(store.state.world, area), false)
+  await store.dispatch('world/destroyObject', 1)
+  assert.equal(isAreaFree(store.state.world, area), true)
   const building = object(3, 0, 0)
-  assert.equal(await store.dispatch('game/addObject', { kind: 'static', object: building }), true)
-  assert.equal(isAreaFree(store.state.game, staticFootprint(building)), false)
-  await store.dispatch('game/destroyObject', 3)
-  assert.equal(isAreaFree(store.state.game, staticFootprint(building)), true)
+  assert.equal(await store.dispatch('world/addObject', { kind: 'static', object: building }), true)
+  assert.equal(isAreaFree(store.state.world, staticFootprint(building)), false)
+  await store.dispatch('world/destroyObject', 3)
+  assert.equal(isAreaFree(store.state.world, staticFootprint(building)), true)
 })
 
 test('pause/menu/game over prevent movement and creation; restart discards old occupancy', async () => {
   const store = makeStore()
-  store.commit('game/SET_UNIT_TARGET', { id: 1, target: { x: 200, y: 0 } })
+  store.commit('world/SET_UNIT_TARGET', { id: 1, target: { x: 200, y: 0 } })
   store.commit('game/SET_PAUSED', true)
-  await store.dispatch('game/moveUnits', 0.1)
-  assert.equal(store.state.game.units[0].position.x, -200)
-  assert.equal(await store.dispatch('game/addObject', { kind: 'unit', object: unit(3, 400, 400) }), false)
+  await store.dispatch('world/moveUnits', 0.1)
+  assert.equal(store.state.world.units[0].position.x, -200)
+  assert.equal(await store.dispatch('world/addObject', { kind: 'unit', object: unit(3, 400, 400) }), false)
   store.commit('game/OPEN_MENU')
-  await store.dispatch('game/moveUnits', 0.1)
-  assert.equal(store.state.game.units[0].position.x, -200)
+  await store.dispatch('world/moveUnits', 0.1)
+  assert.equal(store.state.world.units[0].position.x, -200)
   await store.dispatch('game/loadScenario', 'duel')
-  assertValid(store.state.game)
-  assert.equal(isAreaFree(store.state.game, squareFootprint({ x: 800, y: 800 }, 16)), true)
-  await store.dispatch('game/destroyObject', 3)
+  assertValid(store.state.world)
+  assert.equal(isAreaFree(store.state.world, squareFootprint({ x: 800, y: 800 }, 16)), true)
+  await store.dispatch('world/destroyObject', 3)
   assert.equal(store.getters['game/isGameOver'], true)
-  assert.equal(await store.dispatch('game/addObject', { kind: 'unit', object: unit(4, 400, 400, 2) }), false)
+  assert.equal(await store.dispatch('world/addObject', { kind: 'unit', object: unit(4, 400, 400, 2) }), false)
 })
 
 test('every bundled scenario starts and runs without physical overlap', () => {
