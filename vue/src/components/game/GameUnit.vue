@@ -90,7 +90,8 @@ import { groupColor } from '@/game/config'
 import { depthZIndex, worldToScreen } from '@/game/coords'
 import type { Point, Unit, UnitType } from '@/game/types'
 
-// Юнит: у пеших - человечек, у водных - лодка или корабль; точка position - центр на воде
+// Юнит: у пеших - человечек, у водных - лодка или корабль; точка position - центр на воде.
+// Компонент только рисует: данные юнита приходят из стора world через GameField и не меняются здесь
 const props = defineProps<{
   unit: Unit
   type: UnitType

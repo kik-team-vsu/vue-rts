@@ -31,6 +31,7 @@ import { depthZIndex, ISO_SCALE, worldToScreen } from '@/game/coords'
 import type { BuildingType, ObjectType, StaticObject } from '@/game/types'
 
 // статичный объект на карте (здание, дерево): объёмная коробка с точкой привязки в центре основания
+// Компонент только рисует: данные объекта приходят из стора world через GameField и не меняются здесь
 const props = defineProps<{
   object: StaticObject
   type: ObjectType | BuildingType

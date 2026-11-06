@@ -10,15 +10,7 @@
       @mouseleave="() => resetMouse()">
 
     <div class="world" :style="worldStyle">
-      <div class="ground" :style="groundStyle" />
-
-      <!-- зоны местности: тот же поворот и сжатие, что у земли -->
-      <div
-          v-for="(zone, index) in terrainZones"
-          :key="'terrain-' + index"
-          class="terrain-zone"
-          :class="zoneClass(zone)"
-          :style="zoneStyle(zone)" />
+      <GameGround />
 
       <div class="objects-layer">
         <!-- уничтоженный объект не пропадает сразу, а проигрывает анимацию destroy -->
@@ -33,14 +25,8 @@
         </TransitionGroup>
       </div>
 
-      <!-- линии пути выбранных юнитов -->
-      <template v-for="order in orders" :key="order.id">
-        <div
-            v-for="(style, index) in order.pathStyles"
-            :key="index"
-            class="path-line"
-            :style="style" />
-      </template>
+      <!-- приказы выбранных юнитов: путь и точка назначения -->
+      <UnitOrders />
 
       <TransitionGroup name="destroy">
         <GameUnit
@@ -51,12 +37,6 @@
             :selected="selectedIds.includes(u.id)"
             @select="(additive) => selectUnit(u.id, additive)"/>
       </TransitionGroup>
-
-      <div
-          v-for="order in orders"
-          :key="order.id"
-          class="target-mark"
-          :style="order.targetStyle" />
 
     </div>
 
@@ -70,11 +50,13 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useStore } from 'vuex'
+import GameGround from './GameGround.vue'
 import GameStaticObject from './GameStaticObject.vue'
 import GameUnit from './GameUnit.vue'
-import { CAMERA, MAP, OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
+import UnitOrders from './UnitOrders.vue'
+import { CAMERA, OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
 import { screenToWorld, worldToScreen } from '@/game/coords'
-import type { Point, StaticObject, TerrainZone, Unit } from '@/game/types'
+import type { Point, StaticObject, Unit } from '@/game/types'
 
 interface Box {
   left: number
@@ -90,11 +72,12 @@ const MIN_SELECTION_PX = 5
 let dragging = false
 let dragLast: Point = { x: 0, y: 0 }
 
-// объекты, юниты и выбор хранятся в store
+// Окно игры: принимает ввод мыши и передаёт его в стор (выбор, приказы, камера).
+// Игровой логики здесь нет: элементы карты, события и камера живут в сторе, а рисуют их дочерние компоненты.
+// Объекты и юниты передаются пропсами: уничтоженный объект ещё проигрывает анимацию destroy со своими последними данными
 const store = useStore()
 const objects = computed<StaticObject[]>(() => store.getters['world/getObjects'])
 const units = computed<Unit[]>(() => store.getters['world/getUnits'])
-const terrainZones = computed<TerrainZone[]>(() => store.getters['world/getTerrainZones'])
 const selectedIds = computed<number[]>(() => store.getters['selection/getSelectedIds'])
 const selectedUnits = computed<Unit[]>(() => store.getters['selection/getSelectedUnits'])
 
@@ -116,61 +99,6 @@ const worldStyle = computed(() => ({
   transform: `translate(${-camera.value.x}px, ${-camera.value.y}px)`,
 }))
 
-const groundStyle = {
-  left: -MAP.width / 2 + 'px',
-  top: -MAP.height / 2 + 'px',
-  width: MAP.width + 'px',
-  height: MAP.height + 'px',
-  backgroundSize: `${MAP.cell}px ${MAP.cell}px, ${MAP.cell}px ${MAP.cell}px, 256px 256px`,
-}
-
-// зона местности в мировых координатах.
-// Точка поворота - центр карты (мировой ноль), как у .ground, иначе зона съедет:
-// в локальных координатах зоны мировой ноль лежит в (-zone.x, -zone.y)
-const zoneStyle = (zone: TerrainZone) => ({
-  left: zone.x + 'px',
-  top: zone.y + 'px',
-  width: zone.width + 'px',
-  height: zone.height + 'px',
-  transformOrigin: `${-zone.x}px ${-zone.y}px`,
-})
-
-// класс зоны: у реки течение вдоль длинной стороны зоны,
-// узкая и высокая зона получает плитку с вертикальным течением
-const zoneClass = (zone: TerrainZone) =>
-  zone.type === 'river' && zone.height > zone.width
-    ? 'terrain-zone--river-v'
-    : 'terrain-zone--' + zone.type
-
-const orders = computed(() => {
-  const result = []
-  for (const unit of selectedUnits.value) {
-    if (unit.target) {
-      // ломаная от юнита через точки пути до цели
-      const points = [unit.position, ...(unit.path ?? [unit.target])].map(worldToScreen)
-      const to = points[points.length - 1]
-      result.push({
-        id: unit.id,
-        targetStyle: {
-          left: to.x + 'px',
-          top: to.y + 'px',
-        },
-        pathStyles: points.slice(1).map((point, index) => {
-          const from = points[index]
-          const dx = point.x - from.x
-          const dy = point.y - from.y
-          return {
-            left: from.x + 'px',
-            top: from.y + 'px',
-            width: Math.hypot(dx, dy) + 'px',
-            transform: `rotate(${Math.atan2(dy, dx)}rad)`,
-          }
-        }),
-      })
-    }
-  }
-  return result
-})
 
 const selectionBoxStyle = computed(() => {
   const box = selectionBox.value
@@ -369,55 +297,9 @@ onUnmounted(() => {
   height: 0;
 }
 
-.ground {
-  position: absolute;
-  // ромбовидная карта: поворот на 45 градусов и сжатие по вертикали на 0.5
-  transform: scaleY(0.5) rotate(45deg);
-  background-color: #4a7c3a;
-  background-image:
-      linear-gradient(to right, rgba(0, 0, 0, 0.2) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(0, 0, 0, 0.2) 1px, transparent 1px),
-      url('../../assets/grass.svg');
-}
-
 .objects-layer {
   position: absolute;
   z-index: 0;
-}
-
-.terrain-zone {
-  position: absolute;
-  // как у .ground: ромбовидная зона в изометрии
-  transform: scaleY(0.5) rotate(45deg);
-
-  // озеро: спокойная глубокая вода
-  &--lake {
-    background-color: #2563eb;
-    background-image: url('../../assets/lake.svg');
-  }
-
-  // река: та же вода, но плитка с полосами течения
-  &--river {
-    background-color: #2563eb;
-    background-image: url('../../assets/river.svg');
-  }
-
-  // вертикальная река: та же плитка, течение вдоль оси y
-  &--river-v {
-    background-color: #2563eb;
-    background-image: url('../../assets/river-vertical.svg');
-  }
-
-  // песок: декоративный берег, проходим как суша
-  &--sand {
-    background-color: #cfb684;
-    background-image: url('../../assets/sand.svg');
-  }
-
-  // горы: непроходимая скалистая местность с пиками
-  &--mountain {
-    background-image: url('../../assets/mountain.svg');
-  }
 }
 
 // уничтожение: объект сжимается к основанию и исчезает
@@ -438,15 +320,6 @@ onUnmounted(() => {
   }
 }
 
-.path-line {
-  position: absolute;
-  height: 0;
-  margin-top: -1px;
-  border-top: 2px dashed rgba(255, 255, 255, 0.7);
-  transform-origin: left center;
-  pointer-events: none;
-}
-
 .selection-box {
   position: absolute;
   border: 1px solid #fff;
@@ -454,13 +327,4 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-.target-mark {
-  position: absolute;
-  width: 16px;
-  height: 8px;
-  margin: -4px 0 0 -8px;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  pointer-events: none;
-}
 </style>
