@@ -156,11 +156,13 @@ const resetMouse = () => {
   store.dispatch('camera/setEdgeScroll', { x: 0, y: 0 })
 }
 
-// ПКМ: приказ выбранным юнитам идти в точку - создаётся событие move
+// ПКМ: приказ выбранным юнитам идти в точку - создаётся событие move.
+// С зажатым Shift точка добавляется в конец очереди, без Shift очередь заменяется
 const moveSelected = (e: MouseEvent) => {
   store.dispatch('events/orderMove', {
     actorIds: selectedUnits.value.map((u) => u.id),
     point: toWorld(e),
+    append: e.shiftKey,
   })
 }
 
