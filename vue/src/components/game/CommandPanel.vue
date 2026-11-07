@@ -8,6 +8,7 @@
         v-for="command in commands"
         :key="command.id"
         class="command-panel__button"
+        :class="{ 'command-panel__button--spawn': command.action === 'world/spawnUnit' }"
         @mousedown.prevent
         @click="() => run(command)">
       {{ command.label }}
@@ -18,13 +19,30 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useStore } from 'vuex'
-import { COMMANDS } from '@/game/config'
-import type { Command } from '@/game/types'
+import { COMMANDS, OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
+import type { Command, StaticObject, Unit } from '@/game/types'
 
 // одна панель команд, кнопки зависят от выбора
 const store = useStore()
 const isRunning = computed<boolean>(() => store.getters['game/isRunning'])
 const selectedUnits = computed(() => store.getters['selection/getSelectedUnits'])
+const selected = computed<StaticObject | Unit | null>(() => store.getters['selection/getSelected'])
+
+// кнопки спавна выбранного здания: по одной на каждый тип юнита из spawns
+const spawnCommands = computed<Command[]>(() => {
+  const building = selected.value
+  if (!building || !(building.type in OBJECT_TYPES)) {
+    return []
+  }
+  const type = OBJECT_TYPES[building.type]
+  const spawns = 'spawns' in type ? type.spawns ?? [] : []
+  return spawns.map((unitType) => ({
+    id: 'spawn-' + unitType,
+    label: 'Создать: ' + UNIT_TYPES[unitType].name,
+    action: 'world/spawnUnit',
+    payload: unitType,
+  }))
+})
 
 const commands = computed<Command[]>(() => {
   // в меню и после конца игры кнопок нет
@@ -34,12 +52,12 @@ const commands = computed<Command[]>(() => {
   if (selectedUnits.value.length > 0) {
     return [COMMANDS.destroy]
   }
-  // здание (спавн, задача 19) и стройку (задача 20) потом добавим сюда
-  return []
+  // стройку (задача 20) потом добавим сюда
+  return spawnCommands.value
 })
 
 const run = (command: Command) => {
-  store.dispatch(command.action)
+  store.dispatch(command.action, command.payload)
 }
 </script>
 
@@ -67,6 +85,14 @@ const run = (command: Command) => {
 
     &:hover {
       background: $danger-color-hover;
+    }
+
+    &--spawn {
+      background: $action-color;
+
+      &:hover {
+        background: $action-color-hover;
+      }
     }
   }
 }

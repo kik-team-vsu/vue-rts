@@ -46,11 +46,12 @@ export const CAMERA = { speedPxPerSecond: 500, edgePx: 80 }
 const cells = (count: number) => count * MAP.cell
 
 export const OBJECT_TYPES: Record<string, ObjectType | BuildingType> = {
-  house: { name: 'Дом', width: cells(2), height: cells(2), color: '#a16207', wallHeight: 50, roofHeight: 40, roofColor: '#b91c1c', size: 2, maxHp: 200 },
+  house: { name: 'Дом', width: cells(2), height: cells(2), color: '#a16207', wallHeight: 50, roofHeight: 40, roofColor: '#b91c1c', size: 2, maxHp: 200, spawns: ['worker'] },
   tree: { name: 'Дерево', width: 10, height: 10, color: '#7c4a1e', wallHeight: 80, branchColor: '#16a34a' },
-  castle: { name: 'Замок', width: cells(4), height: cells(4), color: '#6b7280', wallHeight: 110, roofHeight: 18, roofType: 'battlements', size: 4, maxHp: 500 },
+  castle: { name: 'Замок', width: cells(4), height: cells(4), color: '#6b7280', wallHeight: 110, roofHeight: 18, roofType: 'battlements', size: 4, maxHp: 500, spawns: ['worker', 'warrior'] },
   tower: { name: 'Башня', width: cells(1), height: cells(1), color: '#78716c', wallHeight: 90, roofHeight: 30, roofColor: '#44403c', size: 1, maxHp: 120 },
-  barracks: { name: 'Казарма', width: cells(3), height: cells(3), color: '#92400e', wallHeight: 45, roofHeight: 30, roofColor: '#166534', size: 3, maxHp: 350 },
+  barracks: { name: 'Казарма', width: cells(3), height: cells(3), color: '#92400e', wallHeight: 45, roofHeight: 30, roofColor: '#166534', size: 3, maxHp: 350, spawns: ['warrior'] },
+  dock: { name: 'Пристань', width: cells(2), height: cells(2), color: '#a8a29e', wallHeight: 30, roofHeight: 25, roofColor: '#0369a1', size: 2, maxHp: 150, spawns: ['boat', 'warship'] },
 }
 
 export const UNIT_TYPES: Record<string, UnitType> = {
@@ -88,6 +89,8 @@ export const START_OBJECTS: StaticObject[] = [
   { id: 20, type: 'barracks', group: 3, hp: 350, position: { x: 625, y: -1125 } },
   { id: 21, type: 'tower', group: 3, hp: 120, position: { x: 875, y: -975 } },
   { id: 22, type: 'house', group: 3, hp: 200, position: { x: 900, y: -1250 } },
+  { id: 26, type: 'dock', group: 1, hp: 150, position: { x: -500, y: 700 } },
+  { id: 27, type: 'dock', group: 2, hp: 150, position: { x: 850, y: -200 } },
 ]
 
 const START_UNITS: Unit[] = [

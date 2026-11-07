@@ -1,8 +1,9 @@
 import START_UNITS, {OBJECT_TYPES, START_OBJECTS, UNIT_TYPES} from '@/game/config'
 import {SCENARIOS} from '@/game/scenarios'
 import {advanceUnits, orderUnit} from '@/game/movement'
-import {isAreaFree, staticFootprint, unitFootprint} from '@/game/spatial'
+//import {isAreaFree, staticFootprint, unitFootprint} from '@/game/spatial'
 import {isFootprintTerrainPassable} from '@/game/terrain'
+import {findNearestFreePosition, isAreaFree, staticFootprint, unitFootprint} from '@/game/spatial'
 
 // Хранилище всех элементов карты: статичные объекты (здания, деревья), юниты и зоны местности.
 // Состояние модуля - это CollisionWorld
@@ -134,6 +135,35 @@ export default {
             if (!isActive(rootState, rootGetters) || !payload || !canAddObject(state, payload)) return false
             commit(MUTATIONS.ADD_OBJECT, payload)
             return true
+        },
+        // Спавн: выбранное здание создаёт юнита типа unitType на ближайшем свободном месте рядом с собой.
+        spawnUnit: ({state, dispatch, rootGetters}, unitType) => {
+            const building = rootGetters['selection/getSelected']
+            if (!building || !Object.hasOwn(OBJECT_TYPES, building.type) || !Object.hasOwn(UNIT_TYPES, unitType)) {
+                return false
+            }
+            const spawns = OBJECT_TYPES[building.type].spawns ?? []
+            if (!spawns.includes(unitType)) {
+                return false
+            }
+            const unitStats = UNIT_TYPES[unitType]
+            const unit = {
+                // ID общий для юнитов и зданий: берём следующий после самого большого
+                id: Math.max(0, ...[...state.objects, ...state.units].map((o) => o.id)) + 1,
+                type: unitType,
+                group: building.group,
+                hp: unitStats.maxHp,
+                position: building.position,
+                target: null,
+            }
+            // ищем от центра здания: первое свободное место окажется вплотную к нему
+            const position = findNearestFreePosition(state, unitFootprint(unit), {
+                accept: (point) => fitsTerrain(state, 'unit', unit, unitFootprint({...unit, position: point})),
+            })
+            if (!position) {
+                return false
+            }
+            return dispatch('addObject', {kind: 'unit', object: {...unit, position}})
         },
         // Уничтожить объект по id: он пропадает с карты, из выбора и вместе со своими событиями
         destroyObject: ({commit, dispatch}, id) => {
