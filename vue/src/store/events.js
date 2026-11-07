@@ -143,8 +143,9 @@ export default {
       })
       dispatch('startPending')
     },
-    // Приказ по ПКМ игрока: чужой юнит под курсором - приказ атаки, иначе идём к точке строем
-    orderByClick: ({ dispatch, rootGetters }, { actorIds, point }) => {
+    // Приказ по ПКМ игрока: чужой юнит под курсором - приказ атаки, иначе идём к точке строем.
+    // append - добавить приказ в конец очереди (Shift + ПКМ)
+    orderByClick: ({ dispatch, rootGetters }, { actorIds, point, append = false }) => {
       if (!rootGetters['game/isRunning'] || !Number.isFinite(point?.x) || !Number.isFinite(point?.y)) {
         return
       }
@@ -160,12 +161,12 @@ export default {
       // строю остаются только идущие: места в строю не уходят атакующим
       const movers = units.filter((unit) => !attackers.includes(unit))
       attackers.forEach((unit) => {
-        dispatch('create', { type: 'attack', actorId: unit.id, target: { ...clickedUnit.position }, targetId: clickedUnit.id })
+        dispatch('create', { type: 'attack', actorId: unit.id, target: { ...clickedUnit.position }, targetId: clickedUnit.id, append })
       })
       if (movers.length) {
         const targets = formationTargets(movers, point)
         movers.forEach((unit, index) => {
-          dispatch('create', { type: 'move', actorId: unit.id, target: targets[index] })
+          dispatch('create', { type: 'move', actorId: unit.id, target: targets[index], append })
         })
       }
       dispatch('startPending')
