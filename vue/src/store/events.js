@@ -16,6 +16,7 @@ const MUTATIONS = {
   SET_STARTED: 'SET_STARTED',
   SET_STATUS: 'SET_STATUS',
   SET_NEXT: 'SET_NEXT',
+  SET_TARGET: 'SET_TARGET',
   SET_EVENT_TARGET: 'SET_EVENT_TARGET',
 }
 
@@ -95,6 +96,14 @@ export default {
         event.nextId = nextId
       }
     },
+    // новая точка назначения: маршрут к ней проложится заново при старте события
+    [MUTATIONS.SET_TARGET]: (state, { id, target }) => {
+      const event = state.list.find((e) => e.id === id)
+      if (event) {
+        event.target = target
+        event.started = false
+      }
+    },
     [MUTATIONS.SET_STARTED]: (state, id) => {
       const event = state.list.find((e) => e.id === id)
       if (event) {
@@ -140,6 +149,25 @@ export default {
       const targets = formationTargets(units, point)
       units.forEach((unit, index) => {
         dispatch('create', { type: 'move', actorId: unit.id, target: targets[index], append })
+      })
+      dispatch('startPending')
+    },
+    // Перенести точку последнего приказа move группы (ведение за курсором при зажатой ПКМ).
+    // Очередь не трогаем: меняется только последняя точка. Юнит без приказов получает новый приказ
+    retargetMove: ({ getters, commit, dispatch, rootGetters }, { actorIds, point }) => {
+      if (!rootGetters['game/isRunning'] || !Number.isFinite(point?.x) || !Number.isFinite(point?.y)) {
+        return
+      }
+      const units = actorIds.map((id) => rootGetters['world/getById'](id)).filter((unit) => unit && unit.type in UNIT_TYPES)
+      const targets = formationTargets(units, point)
+      units.forEach((unit, index) => {
+        const queue = getters.getByActor(unit.id)
+        const last = queue[queue.length - 1]
+        if (last?.type === 'move') {
+          commit(MUTATIONS.SET_TARGET, { id: last.id, target: targets[index] })
+        } else {
+          dispatch('create', { type: 'move', actorId: unit.id, target: targets[index], append: true })
+        }
       })
       dispatch('startPending')
     },
