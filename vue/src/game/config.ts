@@ -99,5 +99,5 @@ export default START_UNITS
 
 // кнопки панели, action вызывается из стора
 export const COMMANDS: Record<string, Command> = {
-  destroy: { id: 'destroy', label: 'Самоуничтожение', action: 'game/destroySelectedUnits' },
+  destroy: { id: 'destroy', label: 'Самоуничтожение', action: 'world/destroySelectedUnits' },
 }

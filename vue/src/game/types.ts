@@ -64,12 +64,32 @@ export interface StaticObject extends GameObject {
 export interface Unit extends GameObject {
   type: string // из UNIT_TYPES
   hp: number
-  target: Point | null // целевая точка при перемещении, null у стоящего объекта
+  // Маршрут, проложенный событием move (стор events): куда юнит идёт сейчас, null у стоящего.
+  // Сам приказ хранится в событии, здесь только состояние движения
+  target: Point | null
   path?: Point[] | null // точки пути в обход препятствий, последняя совпадает с target
   blockedFor?: number // время ожидания до повторного поиска пути, секунды
   targetId?: number | null // цель атаки (id юнита), null - обычное движение
   isAttacking?: boolean // true, пока юнит в режиме атаки
   facing?: number // куда смотрит нос (лицо), радианы в мировых координатах: 0 - +x, PI/2 - +y
+}
+
+// Событие - действие объекта: «идти в точку», «атаковать цель» (П10) и т.д.
+// Игрок и сценарии создают события, а игровой цикл каждый кадр применяет активные события к элементам карты.
+export type GameEventType = 'move' | 'attack'
+
+// active - выполняется сейчас; waiting - ждёт завершения предыдущего события в цепочке (П12)
+export type GameEventStatus = 'active' | 'waiting'
+
+export interface GameEvent {
+  id: number
+  type: GameEventType
+  actorId: number // кто выполняет: id юнита
+  target: Point | null // точка назначения (move, attack - куда идти)
+  targetId: number | null // объект-цель (attack)
+  status: GameEventStatus
+  started: boolean // маршрут уже проложен (move, attack)
+  nextId: number | null // событие, которое начнётся после этого (П12)
 }
 
 // Событие сценария: в момент at (секунды) юнит идёт в точку target
