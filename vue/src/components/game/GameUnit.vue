@@ -1,7 +1,7 @@
 <template>
   <div
       class="game-unit"
-      :class="[`shape-${shape}`, { selected, walking }]"
+      :class="[`shape-${shape}`, { selected, walking, attacking }]"
       :style="style"
       @mousedown.left.stop="(event) => pushEmit(event)">
     <!-- плавающие суда стоят прямо в воде: у них нет тени на воде -->
@@ -104,6 +104,12 @@ const pushEmit = (event: MouseEvent) => emit('select', event.shiftKey)
 
 // Ожидание свободного пути сохраняет цель, но не включает анимацию ходьбы
 const walking = computed(() => !!props.unit.target && !!props.unit.path?.length && !props.unit.blockedFor)
+
+// Атака: юнит в режиме атаки и дошёл до цели (приказ движения снят), стоит и бьёт
+const attacking = computed(() => !!props.unit.isAttacking && !props.unit.target)
+
+// Темп удара из attackSpeed: период одного замаха в секундах
+const strikePeriod = computed(() => (props.type.attackSpeed > 0 ? 1 / props.type.attackSpeed : 1))
 
 // Как рисовать юнит: по умолчанию человечек, у лодок и кораблей - свой силуэт
 const shape = computed(() => props.type.shape ?? 'human')
@@ -226,6 +232,7 @@ const style = computed(() => {
     width: props.type.width + 'px',
     height: props.type.height + 'px',
     zIndex: depthZIndex(point),
+    '--strike-period': strikePeriod.value + 's',
   }
 })
 </script>
@@ -318,6 +325,28 @@ const style = computed(() => {
   }
 }
 
+// Удар пешего: замах правой рукой наружу и взмах поперёк тела,
+// темп - период из attackSpeed юнита
+.attacking > .arm.right {
+  animation: strike var(--strike-period, 1s) ease-in-out infinite;
+}
+
+@keyframes strike {
+  0%,
+  100% {
+    transform: rotate(-25deg);
+  }
+
+  35% {
+    transform: rotate(-100deg);
+  }
+
+  50%,
+  65% {
+    transform: rotate(35deg);
+  }
+}
+
 .body,
 .head {
   position: absolute;
@@ -374,6 +403,23 @@ const style = computed(() => {
 
   50% {
     transform: translate(-50%, -50%) translateY(-2px) rotate(0.6deg);
+  }
+}
+
+// Выстрел судна: короткая отдача корпуса в такт ударам
+.shape-boat.attacking .deck,
+.shape-warship.attacking .deck {
+  animation: recoil var(--strike-period, 1s) ease-out infinite;
+}
+
+@keyframes recoil {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) translateY(0) rotate(0deg);
+  }
+
+  12% {
+    transform: translate(-50%, -50%) translateY(2px) rotate(1.2deg);
   }
 }
 
