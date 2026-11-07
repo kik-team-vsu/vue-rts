@@ -42,6 +42,13 @@
             :style="style" />
       </template>
 
+      <!-- кто кого атакует: линия от атакующего к текущей позиции цели -->
+      <div
+          v-for="attack in attacks"
+          :key="'attack-line-' + attack.id"
+          class="attack-line"
+          :style="attack.lineStyle" />
+
       <TransitionGroup name="destroy">
         <GameUnit
             v-for="u in units"
@@ -57,6 +64,12 @@
           :key="order.id"
           class="target-mark"
           :style="order.targetStyle" />
+
+      <div
+          v-for="attack in attacks"
+          :key="'attack-mark-' + attack.id"
+          class="attack-mark"
+          :style="attack.markStyle" />
 
     </div>
 
@@ -164,6 +177,35 @@ const orders = computed(() => {
         }),
       })
     }
+  }
+  return result
+})
+
+// кто кого атакует: линия от атакующего к цели и кольцо на цели.
+// Цели может уже не быть - тогда атакующий скоро выйдет из режима атаки
+const attacks = computed(() => {
+  const result = []
+  for (const unit of units.value) {
+    if (!unit.isAttacking || unit.targetId == null) continue
+    const target = units.value.find((u) => u.id === unit.targetId)
+    if (!target) continue
+    const from = worldToScreen(unit.position)
+    const to = worldToScreen(target.position)
+    const dx = to.x - from.x
+    const dy = to.y - from.y
+    result.push({
+      id: unit.id,
+      lineStyle: {
+        left: from.x + 'px',
+        top: from.y + 'px',
+        width: Math.hypot(dx, dy) + 'px',
+        transform: `rotate(${Math.atan2(dy, dx)}rad)`,
+      },
+      markStyle: {
+        left: to.x + 'px',
+        top: to.y + 'px',
+      },
+    })
   }
   return result
 })
@@ -479,6 +521,28 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
+// атака: сплошная красная линия пульсирует, пока идёт бой
+.attack-line {
+  position: absolute;
+  height: 0;
+  margin-top: -1px;
+  border-top: 2px solid rgba(220, 38, 38, 0.85);
+  transform-origin: left center;
+  pointer-events: none;
+  animation: attack-pulse 1s ease-in-out infinite;
+}
+
+@keyframes attack-pulse {
+  0%,
+  100% {
+    opacity: 0.9;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}
+
 .selection-box {
   position: absolute;
   border: 1px solid #fff;
@@ -492,6 +556,17 @@ onUnmounted(() => {
   height: 8px;
   margin: -4px 0 0 -8px;
   border: 2px solid #fff;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+// кольцо на цели атаки: тот же эллипс в плоскости карты, что и target-mark
+.attack-mark {
+  position: absolute;
+  width: 16px;
+  height: 8px;
+  margin: -4px 0 0 -8px;
+  border: 2px solid rgba(220, 38, 38, 0.9);
   border-radius: 50%;
   pointer-events: none;
 }
