@@ -13,7 +13,10 @@
       <div class="leg right" />
       <div class="body" :style="{ backgroundColor: type.color }" />
       <div class="arm left" />
-      <div class="arm right" />
+      <!-- в правой руке топор: этой рукой юнит бьёт -->
+      <div class="arm right">
+        <div class="axe" />
+      </div>
       <div class="head" :style="{ backgroundColor: type.color }" />
     </template>
 
@@ -306,6 +309,31 @@ const style = computed(() => {
 
   .selected > & {
     background: #fff;
+  }
+}
+
+// Топор в правой руке: рукоять из-под кулака, лезвие у конца.
+// Рука вращается вокруг плеча - топор идёт по дуге удара
+.axe {
+  position: absolute;
+  left: 0;
+  bottom: -8px;
+  width: 4px;
+  height: 15px;
+  border-radius: 2px;
+  background: #7c4a1e;
+
+  // лезвие: стальной полумесяц, режущая кромка наружу от тела -
+  // она ведёт взмах, когда рука бьёт поперёк тела
+  &::after {
+    content: '';
+    position: absolute;
+    left: -7px;
+    bottom: -1px;
+    width: 9px;
+    height: 8px;
+    border-radius: 70% 20% 20% 70%;
+    background: linear-gradient(to right, #e5e7eb, #9ca3af);
   }
 }
 

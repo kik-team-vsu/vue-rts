@@ -27,10 +27,14 @@ const FORMATION_STEP = 40
 const ATTACK_RANGE = 50 // минимальная дальность атаки между центрами юнитов
 const CLICK_RADIUS = 20 // радиус поиска юнита под правым кликом
 
-// Дальность атаки пары юнитов: широким юнитам (кораблям) нужно больше расстояния,
-// иначе корпуса не дают сблизиться центрам на ATTACK_RANGE
-const attackRange = (unit, target) =>
-  Math.max(ATTACK_RANGE, (UNIT_TYPES[unit.type].width + UNIT_TYPES[target.type].width) / 2)
+// Дальность атаки пары юнитов: корпуса не дают сблизиться центрам ближе
+// полусуммы ширин, а путь заканчивается на центре свободной клетки (клетка 50).
+// Поэтому у пар шире базы дальность - контакт корпусов плюс клетка запаса,
+// иначе корабли останавливаются на контакте, не добрав до дальности атаки
+const attackRange = (unit, target) => {
+  const contact = (UNIT_TYPES[unit.type].width + UNIT_TYPES[target.type].width) / 2
+  return contact <= ATTACK_RANGE ? ATTACK_RANGE : contact + ATTACK_RANGE
+}
 
 const canAddObject = (state, { kind, object }) => {
   if (!object || !Number.isSafeInteger(object.id) || object.id <= 0 ||
