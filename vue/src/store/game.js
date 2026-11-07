@@ -19,11 +19,18 @@ const MUTATIONS = {
   RUN_SCENARIO_EVENTS: 'RUN_SCENARIO_EVENTS',
   ADD_OBJECT: 'ADD_OBJECT',
   APPLY_DAMAGE: 'APPLY_DAMAGE',
+  STOP_UNIT: 'STOP_UNIT',
+  STOP_ATTACK: 'STOP_ATTACK',
 }
 
 const FORMATION_STEP = 40
-const ATTACK_RANGE = 50
-const CLICK_RADIUS = 20
+const ATTACK_RANGE = 50 // минимальная дальность атаки между центрами юнитов
+const CLICK_RADIUS = 20 // радиус поиска юнита под правым кликом
+
+// Дальность атаки пары юнитов: широким юнитам (кораблям) нужно больше расстояния,
+// иначе корпуса не дают сблизиться центрам на ATTACK_RANGE
+const attackRange = (unit, target) =>
+  Math.max(ATTACK_RANGE, (UNIT_TYPES[unit.type].width + UNIT_TYPES[target.type].width) / 2)
 
 const canAddObject = (state, { kind, object }) => {
   if (!object || !Number.isSafeInteger(object.id) || object.id <= 0 ||
@@ -91,7 +98,8 @@ export default {
     [MUTATIONS.SET_SELECTED_IDS]: (state, ids) => {
       state.selectedIds = ids
     },
-    // Модифицировано для сохранения targetId и isAttacking (исправление ревью)
+    // Приказ юниту: точка движения (со слотом строя) и, для атаки, цель ударов;
+    // обычное движение передаётся без targetId и сбрасывает режим атаки
     [MUTATIONS.SET_UNIT_TARGET]: (state, { id, target, targetId, isAttacking, reserved = [] }) => {
       const unit = state.units.find((u) => u.id === id)
       if (unit) {
@@ -100,11 +108,27 @@ export default {
         unit.isAttacking = isAttacking ?? false
       }
     },
-    // Новая мутация для нанесения урона (исправление ревью)
+    // Наносим урон юниту-цели; мёртвых убирает removeDead
     [MUTATIONS.APPLY_DAMAGE]: (state, { targetId, damage }) => {
-      const target = state.units.find(u => u.id === targetId)
+      const target = state.units.find((u) => u.id === targetId)
       if (target) {
         target.hp -= damage
+      }
+    },
+    // Снимаем приказ движения, режим атаки сохраняем (юнит в радиусе атаки)
+    [MUTATIONS.STOP_UNIT]: (state, id) => {
+      const unit = state.units.find((u) => u.id === id)
+      if (unit) {
+        unit.target = null
+        unit.path = null
+      }
+    },
+    // Выходим из режима атаки: цель умерла или отменена другим приказом
+    [MUTATIONS.STOP_ATTACK]: (state, id) => {
+      const unit = state.units.find((u) => u.id === id)
+      if (unit) {
+        unit.isAttacking = false
+        unit.targetId = null
       }
     },
     // Удаляем объект по id и убираем из выбора
@@ -154,6 +178,9 @@ export default {
         const unit = state.units.find((u) => u.id === e.unitId)
         if (unit) {
           orderUnit(state, unit, e.target)
+          // сценарный приказ движения отменяет атаку
+          unit.targetId = null
+          unit.isAttacking = false
         }
       })
       state.pendingEvents = state.pendingEvents.filter((e) => e.at > state.scenarioTime)
@@ -202,13 +229,15 @@ export default {
       const spacing = Math.max(FORMATION_STEP, ...units.map((unit) => UNIT_TYPES[unit.type].width + 8))
       // В пределах приказа каждое место назначается только одному юниту
       const reserved = []
-
-      // Вычисляем кликнутого юнита один раз перед циклом
-      const clickedUnit = store.state.units.find(u =>
-        Math.abs(u.position.x - point.x) < CLICK_RADIUS && Math.abs(u.position.y - point.y) < CLICK_RADIUS
-      );
+      // Юнит под курсором ищется один раз до цикла; клик по чужому юниту - приказ атаки
+      const clickedUnit = store.state.units.find((u) =>
+        Math.abs(u.position.x - point.x) < CLICK_RADIUS && Math.abs(u.position.y - point.y) < CLICK_RADIUS)
 
       units.forEach((unit, index) => {
+        if (clickedUnit && clickedUnit.group !== unit.group) {
+          store.dispatch('attackUnit', { attackerId: unit.id, targetId: clickedUnit.id })
+          return
+        }
         const column = index % columns
         const row = Math.floor(index / columns)
         store.commit(MUTATIONS.SET_UNIT_TARGET, {
@@ -220,21 +249,6 @@ export default {
           reserved,
         })
         if (unit.target) reserved.push({ ...unitFootprint(unit), position: unit.target })
-        // Если кликнули по врагу - атакуем
-        if (clickedUnit && clickedUnit.group !== unit.group) {
-           store.dispatch('attackUnit', { attackerId: unit.id, targetId: clickedUnit.id });
-        } else {
-           // Иначе - обычное движение
-           const column = index % columns
-           const row = Math.floor(index / columns)
-           store.commit(MUTATIONS.SET_UNIT_TARGET, {
-              id: unit.id,
-              target: clampToMap({
-                x: point.x + (column - (columns - 1) / 2) * FORMATION_STEP,
-                y: point.y + (row - (rows - 1) / 2) * FORMATION_STEP
-              })
-           })
-        }
       })
     },
     // Возвращает true при добавлении и false при отказе
@@ -247,18 +261,17 @@ export default {
     destroyObject: (store, id) => {
       store.commit(MUTATIONS.REMOVE_OBJECT, id)
     },
-    // Логика атаки
+    // Приказ атаки: сближение через обычный поиск пути, урон идёт в moveUnits
     attackUnit: (store, { attackerId, targetId }) => {
-      const attacker = store.state.units.find(u => u.id === attackerId);
-      const target = store.state.units.find(u => u.id === targetId);
-
+      const attacker = store.state.units.find((u) => u.id === attackerId)
+      const target = store.state.units.find((u) => u.id === targetId)
       if (attacker && target) {
         store.commit(MUTATIONS.SET_UNIT_TARGET, {
           id: attackerId,
-          target: { x: target.position.x, y: target.position.y },
-          targetId: targetId,
-          isAttacking: true
-        });
+          target: { ...target.position },
+          targetId,
+          isAttacking: true,
+        })
       }
     },
     // удаляем объекты у которых hp <= 0
@@ -296,43 +309,48 @@ export default {
         store.commit(MUTATIONS.RUN_SCENARIO_EVENTS, secondsPassed)
       }
     },
-    // Движение и логика урона
+    // Движение юнитов и логика атаки
     moveUnits: (store, secondsPassed) => {
       if (!store.state.started || store.state.paused || store.getters.isGameOver) {
         return
       }
 
-      // 1. Движение (только если есть цель)
+      // 1. Атака не зависит от приказов на движение: догоняем цель, в радиусе стоим и бьём
+      store.state.units.forEach((unit) => {
+        if (!unit.isAttacking || !unit.targetId) return
+        const target = store.state.units.find((u) => u.id === unit.targetId)
+        if (!target) {
+          // Цель умерла или исчезла - выходим из режима атаки
+          store.commit(MUTATIONS.STOP_ATTACK, unit.id)
+          return
+        }
+        const distance = Math.hypot(unit.position.x - target.position.x, unit.position.y - target.position.y)
+        if (distance <= attackRange(unit, target)) {
+          // В радиусе атаки стоим и бьём, приказ движения больше не нужен
+          if (unit.target) store.commit(MUTATIONS.STOP_UNIT, unit.id)
+          const stats = UNIT_TYPES[unit.type]
+          store.commit(MUTATIONS.APPLY_DAMAGE, {
+            targetId: target.id,
+            damage: stats.strength * stats.attackSpeed * secondsPassed,
+          })
+          return
+        }
+        // Цель жива, но отошла от точки приказа дальше дальности атаки - догоняем по текущей позиции
+        const goal = unit.target
+        if (!goal || Math.hypot(target.position.x - goal.x, target.position.y - goal.y) > ATTACK_RANGE) {
+          store.commit(MUTATIONS.SET_UNIT_TARGET, {
+            id: unit.id,
+            target: { ...target.position },
+            targetId: target.id,
+            isAttacking: true,
+          })
+        }
+      })
+
+      // 2. Движение (только если есть цель)
       if (store.state.units.some((u) => u.target)) {
         store.commit(MUTATIONS.MOVE_UNITS, secondsPassed)
       }
-
-      // 2. Логика урона (не зависит от движения)
-      store.state.units.forEach(unit => {
-        if (unit.isAttacking && unit.targetId) {
-          const target = store.state.units.find(u => u.id === unit.targetId);
-
-          if (target) {
-            const dist = Math.hypot(unit.position.x - target.position.x, unit.position.y - target.position.y);
-
-            const stats = UNIT_TYPES[unit.type];
-            const damage = stats.strength * stats.attackSpeed * secondsPassed;
-
-            if (dist < ATTACK_RANGE) {
-              store.commit(MUTATIONS.APPLY_DAMAGE, { targetId: target.id, damage: damage });
-
-              if (target.hp <= 0) {
-                unit.isAttacking = false;
-                unit.targetId = null;
-              }
-            }
-          } else {
-            // Цель исчезла (умерла), сбрасываем флаги
-            unit.isAttacking = false;
-            unit.targetId = null;
-          }
-        }
-      });
     },
   },
 }

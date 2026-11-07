@@ -67,6 +67,8 @@ export interface Unit extends GameObject {
   target: Point | null // целевая точка при перемещении, null у стоящего объекта
   path?: Point[] | null // точки пути в обход препятствий, последняя совпадает с target
   blockedFor?: number // время ожидания до повторного поиска пути, секунды
+  targetId?: number | null // цель атаки (id юнита), null - обычное движение
+  isAttacking?: boolean // true, пока юнит в режиме атаки
   facing?: number // куда смотрит нос (лицо), радианы в мировых координатах: 0 - +x, PI/2 - +y
 }
 
