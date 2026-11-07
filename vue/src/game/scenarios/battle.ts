@@ -19,6 +19,7 @@ export const BATTLE: Scenario = {
     makeUnit(9, 'warrior', 2, 350, 60),
     makeUnit(10, 'worker', 2, 420, 0),
   ],
+  terrain: [],
   events: [
     { at: 3, unitId: 8, target: { x: 60, y: -60 } },
     { at: 3, unitId: 9, target: { x: 60, y: 60 } },
