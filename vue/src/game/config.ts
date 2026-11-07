@@ -54,8 +54,8 @@ export const OBJECT_TYPES: Record<string, ObjectType | BuildingType> = {
 export const UNIT_TYPES: Record<string, UnitType> = {
   worker: { name: 'Рабочий', width: 24, height: 40, color: '#0000ff', speedPxPerSecond: 80, maxHp: 50, strength: 5, attackSpeed: 1, terrain: 'land' },
   warrior: { name: 'Воин', width: 32, height: 52, color: '#ff0000', speedPxPerSecond: 150, maxHp: 100, strength: 15, attackSpeed: 1.5, terrain: 'land' },
-  boat: { name: 'Лодка', width: 84, height: 46, color: '#c2853b', speedPxPerSecond: 110, maxHp: 80, strength: 0, attackSpeed: 0, terrain: 'water', shape: 'boat' },
-  warship: { name: 'Военный корабль', width: 132, height: 72, color: '#8b9199', speedPxPerSecond: 80, maxHp: 250, strength: 30, attackSpeed: 0.8, terrain: 'water', shape: 'warship' },
+  boat: { name: 'Лодка', width: 84, height: 46, color: '#c2853b', speedPxPerSecond: 150, maxHp: 80, strength: 0, attackSpeed: 0, terrain: 'water', shape: 'boat' },
+  warship: { name: 'Военный корабль', width: 132, height: 72, color: '#8b9199', speedPxPerSecond: 110, maxHp: 250, strength: 30, attackSpeed: 0.8, terrain: 'water', shape: 'warship' },
 }
 
 // цвета групп

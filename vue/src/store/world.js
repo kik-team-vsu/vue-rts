@@ -13,6 +13,9 @@ const MUTATIONS = {
     REMOVE_OBJECT: 'REMOVE_OBJECT',
     SET_UNIT_TARGET: 'SET_UNIT_TARGET',
     MOVE_UNITS: 'MOVE_UNITS',
+    APPLY_DAMAGE: 'APPLY_DAMAGE',
+    STOP_UNIT: 'STOP_UNIT',
+    STOP_ATTACK: 'STOP_ATTACK',
 }
 
 // новая постройка ставится только на сушу, новый юнит - только на свою местность
@@ -84,15 +87,41 @@ export default {
             state.units = state.units.filter((u) => u.id !== id)
             state.objects = state.objects.filter((o) => o.id !== id)
         },
-        // проложить юниту маршрут к точке (вызывает стор событий при старте события move)
-        [MUTATIONS.SET_UNIT_TARGET]: (state, {id, target, reserved = []}) => {
+        // проложить юниту маршрут к точке (вызывает стор событий при старте события move или attack);
+        // атака передаёт targetId и isAttacking, обычное движение их сбрасывает
+        [MUTATIONS.SET_UNIT_TARGET]: (state, {id, target, targetId, isAttacking, reserved = []}) => {
             const unit = state.units.find((u) => u.id === id)
             if (unit) {
                 orderUnit(state, unit, target, reserved)
+                unit.targetId = targetId ?? null
+                unit.isAttacking = isAttacking ?? false
             }
         },
         [MUTATIONS.MOVE_UNITS]: (state, secondsPassed) => {
             advanceUnits(state, secondsPassed)
+        },
+        // Наносим урон юниту-цели; мёртвых убирает removeDead
+        [MUTATIONS.APPLY_DAMAGE]: (state, {targetId, damage}) => {
+            const target = state.units.find((u) => u.id === targetId)
+            if (target) {
+                target.hp -= damage
+            }
+        },
+        // Снимаем приказ движения, режим атаки сохраняем (юнит в радиусе атаки)
+        [MUTATIONS.STOP_UNIT]: (state, id) => {
+            const unit = state.units.find((u) => u.id === id)
+            if (unit) {
+                unit.target = null
+                unit.path = null
+            }
+        },
+        // Выходим из режима атаки: цель умерла или отменена другим приказом
+        [MUTATIONS.STOP_ATTACK]: (state, id) => {
+            const unit = state.units.find((u) => u.id === id)
+            if (unit) {
+                unit.isAttacking = false
+                unit.targetId = null
+            }
         },
     },
     actions: {
