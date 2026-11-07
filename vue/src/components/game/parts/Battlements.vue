@@ -55,5 +55,5 @@ const teeth = computed(() => {
 </script>
 
 <style scoped lang="scss">
-@use '@/assets/iso-faces';
+@use '@/assets/styles/iso-faces';
 </style>

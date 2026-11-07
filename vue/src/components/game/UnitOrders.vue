@@ -70,13 +70,13 @@ const orders = computed(() => {
 </script>
 
 <style scoped lang="scss">
+@use '@/assets/styles/mixins' as *;
+
 .path-line {
-  position: absolute;
-  height: 0;
-  margin-top: -1px;
-  border-top: 2px dashed rgba(255, 255, 255, 0.7);
   transform-origin: left center;
   pointer-events: none;
+
+  @include line(dashed, rgba($selected-color, 0.7));
 }
 
 .target-mark {
@@ -84,7 +84,7 @@ const orders = computed(() => {
   width: 16px;
   height: 8px;
   margin: -4px 0 0 -8px;
-  border: 2px solid #fff;
+  border: $outline-width solid $selected-color;
   border-radius: 50%;
   pointer-events: none;
 }

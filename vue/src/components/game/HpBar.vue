@@ -40,13 +40,15 @@ const fillStyle = computed(() => {
 </script>
 
 <style scoped lang="scss">
+@use '@/assets/styles/mixins' as *;
+
 .hp-bar {
   position: absolute;
   left: 50%;
   height: 6px;
   box-sizing: border-box;
-  border: 2px solid #000;
-  background: rgba(0, 0, 0, 0.6);
+  border: $outline-width solid $outline-color;
+  background: $hp-bar-background;
   transform: translateX(-50%);
 }
 

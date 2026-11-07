@@ -77,6 +77,8 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
+@use '@/assets/styles/mixins' as *;
+
 .game-controls {
   position: absolute;
   inset: 0;
@@ -94,13 +96,13 @@ onUnmounted(() => {
   &__button {
     padding: 6px 12px;
     border: 0;
-    border-radius: 4px;
-    background: rgba(0, 0, 0, 0.7);
-    color: #fff;
+    border-radius: $button-radius;
+    background: $panel-background;
+    color: $panel-text-color;
     cursor: pointer;
 
     &:hover {
-      background: rgba(0, 0, 0, 0.9);
+      background: $panel-background-hover;
     }
   }
 
@@ -110,9 +112,9 @@ onUnmounted(() => {
     left: 50%;
     padding: 16px 28px;
     transform: translate(-50%, -50%);
-    border-radius: 8px;
-    background: rgba(0, 0, 0, 0.75);
-    color: #fff;
+    border-radius: $banner-radius;
+    background: $banner-background;
+    color: $panel-text-color;
     font-size: 24px;
     text-align: center;
 
