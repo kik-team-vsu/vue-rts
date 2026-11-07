@@ -57,6 +57,8 @@ export default {
       }
       dispatch('game/runScenarioEvents', secondsPassed, { root: true })
       dispatch('events/startPending', null, { root: true })
+      // атака до движения: догоняем цель, в радиусе стоим и бьём
+      dispatch('events/updateAttacks', secondsPassed, { root: true })
       dispatch('world/moveUnits', secondsPassed, { root: true })
       dispatch('events/finishArrived', null, { root: true })
       dispatch('world/removeDead', null, { root: true })

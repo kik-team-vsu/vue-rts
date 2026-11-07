@@ -1,10 +1,12 @@
 import { UNIT_TYPES } from '@/game/config'
+import { ATTACK_RANGE, CLICK_RADIUS, attackRange } from '@/game/combat'
 import { clampUnitTarget } from '@/game/movement'
 import { unitFootprint } from '@/game/spatial'
 
 // Хранилище текущих событий (формат - GameEvent в game/types.ts).
 // Игрок и сценарии только создают события, а применяет их к элементам карты игровой цикл (engine/tick):
 // событие move при старте прокладывает юниту маршрут (A* из game/pathfinding), а когда юнит дошёл - завершается.
+// Событие attack гонится за целью: в радиусе атаки юнит стоит и бьёт, завершается смертью цели.
 
 const MUTATIONS = {
   ADD: 'ADD',
@@ -14,6 +16,7 @@ const MUTATIONS = {
   SET_STARTED: 'SET_STARTED',
   SET_STATUS: 'SET_STATUS',
   SET_NEXT: 'SET_NEXT',
+  SET_EVENT_TARGET: 'SET_EVENT_TARGET',
 }
 
 export const EVENT_STATUS = {
@@ -98,6 +101,13 @@ export default {
         event.started = true
       }
     },
+    // цель события сдвинулась: атака догоняет цель по её текущей позиции
+    [MUTATIONS.SET_EVENT_TARGET]: (state, { id, target }) => {
+      const event = state.list.find((e) => e.id === id)
+      if (event) {
+        event.target = target
+      }
+    },
   },
   actions: {
     // Новое событие объекта.
@@ -133,16 +143,85 @@ export default {
       })
       dispatch('startPending')
     },
-    // Запустить новые активные события move: проложить маршрут.
+    // Приказ по ПКМ игрока: чужой юнит под курсором - приказ атаки, иначе идём к точке строем
+    orderByClick: ({ dispatch, rootGetters }, { actorIds, point }) => {
+      if (!rootGetters['game/isRunning'] || !Number.isFinite(point?.x) || !Number.isFinite(point?.y)) {
+        return
+      }
+      const units = actorIds.map((id) => rootGetters['world/getById'](id)).filter((unit) => unit && unit.type in UNIT_TYPES)
+      if (!units.length) {
+        return
+      }
+      // Юнит под курсором ищется один раз до цикла; клик по чужому юниту - приказ атаки
+      const clickedUnit = rootGetters['world/getUnits'].find((u) =>
+        Math.abs(u.position.x - point.x) < CLICK_RADIUS && Math.abs(u.position.y - point.y) < CLICK_RADIUS)
+
+      const attackers = clickedUnit ? units.filter((unit) => clickedUnit.group !== unit.group) : []
+      // строю остаются только идущие: места в строю не уходят атакующим
+      const movers = units.filter((unit) => !attackers.includes(unit))
+      attackers.forEach((unit) => {
+        dispatch('create', { type: 'attack', actorId: unit.id, target: { ...clickedUnit.position }, targetId: clickedUnit.id })
+      })
+      if (movers.length) {
+        const targets = formationTargets(movers, point)
+        movers.forEach((unit, index) => {
+          dispatch('create', { type: 'move', actorId: unit.id, target: targets[index] })
+        })
+      }
+      dispatch('startPending')
+    },
+    // Запустить новые активные события движения (move и attack): проложить маршрут.
     // Юниты, начавшие движение в одном кадре, не получают одно и то же место назначения (reserved)
     startPending: ({ getters, commit, rootGetters }) => {
       const reserved = []
-      for (const event of getters.getActive.filter((e) => e.type === 'move' && !e.started)) {
-        commit('world/SET_UNIT_TARGET', { id: event.actorId, target: event.target, reserved }, { root: true })
+      for (const event of getters.getActive.filter((e) => (e.type === 'move' || e.type === 'attack') && !e.started)) {
+        commit('world/SET_UNIT_TARGET', {
+          id: event.actorId,
+          target: event.target,
+          targetId: event.targetId,
+          isAttacking: event.type === 'attack',
+          reserved,
+        }, { root: true })
         commit(MUTATIONS.SET_STARTED, event.id)
         const unit = rootGetters['world/getById'](event.actorId)
         if (unit?.target) {
           reserved.push({ ...unitFootprint(unit), position: unit.target })
+        }
+      }
+    },
+    // Каждый кадр до движения - атака не зависит от приказов на движение:
+    // догоняем цель, в радиусе атаки стоим и бьём
+    updateAttacks: ({ getters, commit, dispatch, rootGetters }, secondsPassed) => {
+      for (const event of getters.getActive.filter((e) => e.type === 'attack')) {
+        const unit = rootGetters['world/getById'](event.actorId)
+        const target = rootGetters['world/getById'](event.targetId)
+        if (!unit || !target || !(target.type in UNIT_TYPES)) {
+          // Юнит пропал или цель умерла - выходим из режима атаки
+          if (unit) commit('world/STOP_ATTACK', unit.id, { root: true })
+          dispatch('complete', event.id)
+          continue
+        }
+        const distance = Math.hypot(unit.position.x - target.position.x, unit.position.y - target.position.y)
+        if (distance <= attackRange(unit, target)) {
+          // В радиусе атаки стоим и бьём, приказ движения больше не нужен
+          if (unit.target) commit('world/STOP_UNIT', unit.id, { root: true })
+          const stats = UNIT_TYPES[unit.type]
+          commit('world/APPLY_DAMAGE', {
+            targetId: target.id,
+            damage: stats.strength * stats.attackSpeed * secondsPassed,
+          }, { root: true })
+          continue
+        }
+        // Цель жива, но отошла от точки приказа дальше дальности атаки - догоняем по текущей позиции
+        const goal = event.target
+        if (!goal || Math.hypot(target.position.x - goal.x, target.position.y - goal.y) > ATTACK_RANGE) {
+          commit(MUTATIONS.SET_EVENT_TARGET, { id: event.id, target: { ...target.position } })
+          commit('world/SET_UNIT_TARGET', {
+            id: unit.id,
+            target: { ...target.position },
+            targetId: target.id,
+            isAttacking: true,
+          }, { root: true })
         }
       }
     },
