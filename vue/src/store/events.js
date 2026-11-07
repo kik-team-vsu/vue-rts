@@ -14,6 +14,8 @@ const MUTATIONS = {
   REMOVE_BY_ACTOR: 'REMOVE_BY_ACTOR',
   CLEAR: 'CLEAR',
   SET_STARTED: 'SET_STARTED',
+  SET_STATUS: 'SET_STATUS',
+  SET_NEXT: 'SET_NEXT',
   SET_EVENT_TARGET: 'SET_EVENT_TARGET',
 }
 
@@ -81,6 +83,18 @@ export default {
     [MUTATIONS.CLEAR]: (state) => {
       state.list = []
     },
+    [MUTATIONS.SET_STATUS]: (state, { id, status }) => {
+      const event = state.list.find((e) => e.id === id)
+      if (event) {
+        event.status = status
+      }
+    },
+    [MUTATIONS.SET_NEXT]: (state, { id, nextId }) => {
+      const event = state.list.find((e) => e.id === id)
+      if (event) {
+        event.nextId = nextId
+      }
+    },
     [MUTATIONS.SET_STARTED]: (state, id) => {
       const event = state.list.find((e) => e.id === id)
       if (event) {
@@ -96,15 +110,26 @@ export default {
     },
   },
   actions: {
-    // Новое событие объекта: прежние события этого объекта отменяются, новое начинается сразу
-    create: ({ state, commit }, { type, actorId, target = null, targetId = null }) => {
+    // Новое событие объекта.
+    // append = false: прежние события объекта отменяются, новое начинается сразу.
+    // append = true (Shift): событие встаёт в конец очереди и начнётся, когда завершится предыдущее
+    create: ({ state, commit, getters }, { type, actorId, target = null, targetId = null, append = false }) => {
       const id = state.nextId
-      commit(MUTATIONS.REMOVE_BY_ACTOR, actorId)
-      commit(MUTATIONS.ADD, { type, actorId, target, targetId, status: EVENT_STATUS.ACTIVE, started: false, nextId: null })
+      if (!append) {
+        commit(MUTATIONS.REMOVE_BY_ACTOR, actorId)
+      }
+      const queue = append ? getters.getByActor(actorId) : []
+      const last = queue[queue.length - 1]
+      const status = last ? EVENT_STATUS.WAITING : EVENT_STATUS.ACTIVE
+      commit(MUTATIONS.ADD, { type, actorId, target, targetId, status, started: false, nextId: null })
+      if (last) {
+        commit(MUTATIONS.SET_NEXT, { id: last.id, nextId: id })
+      }
       return id
     },
-    // Приказ «идти в точку» группе юнитов (ПКМ игрока или событие сценария): каждому своя точка в строю
-    orderMove: ({ dispatch, rootGetters }, { actorIds, point }) => {
+    // Приказ «идти в точку» группе юнитов (ПКМ игрока или событие сценария): каждому своя точка в строю.
+    // append - добавить точку в конец очереди (Shift + ПКМ)
+    orderMove: ({ dispatch, rootGetters }, { actorIds, point, append = false }) => {
       if (!rootGetters['game/isRunning'] || !Number.isFinite(point?.x) || !Number.isFinite(point?.y)) {
         return
       }
@@ -114,12 +139,13 @@ export default {
       }
       const targets = formationTargets(units, point)
       units.forEach((unit, index) => {
-        dispatch('create', { type: 'move', actorId: unit.id, target: targets[index] })
+        dispatch('create', { type: 'move', actorId: unit.id, target: targets[index], append })
       })
       dispatch('startPending')
     },
-    // Приказ по ПКМ игрока: чужой юнит под курсором - приказ атаки, иначе идём к точке строем
-    orderByClick: ({ dispatch, rootGetters }, { actorIds, point }) => {
+    // Приказ по ПКМ игрока: чужой юнит под курсором - приказ атаки, иначе идём к точке строем.
+    // append - добавить приказ в конец очереди (Shift + ПКМ)
+    orderByClick: ({ dispatch, rootGetters }, { actorIds, point, append = false }) => {
       if (!rootGetters['game/isRunning'] || !Number.isFinite(point?.x) || !Number.isFinite(point?.y)) {
         return
       }
@@ -135,12 +161,12 @@ export default {
       // строю остаются только идущие: места в строю не уходят атакующим
       const movers = units.filter((unit) => !attackers.includes(unit))
       attackers.forEach((unit) => {
-        dispatch('create', { type: 'attack', actorId: unit.id, target: { ...clickedUnit.position }, targetId: clickedUnit.id })
+        dispatch('create', { type: 'attack', actorId: unit.id, target: { ...clickedUnit.position }, targetId: clickedUnit.id, append })
       })
       if (movers.length) {
         const targets = formationTargets(movers, point)
         movers.forEach((unit, index) => {
-          dispatch('create', { type: 'move', actorId: unit.id, target: targets[index] })
+          dispatch('create', { type: 'move', actorId: unit.id, target: targets[index], append })
         })
       }
       dispatch('startPending')
@@ -200,18 +226,31 @@ export default {
         }
       }
     },
-    // Каждый кадр после движения: событие move выполнено, если юнит дошёл или пути нет; юнит пропал - событие тоже
+    // Каждый кадр после движения: событие move выполнено, если юнит дошёл или пути нет; юнит пропал - событие тоже.
+    // Следующее по очереди событие сразу получает маршрут, юнит идёт дальше без остановки
     finishArrived: ({ getters, dispatch, rootGetters }) => {
+      let finished = false
       for (const event of getters.getActive.filter((e) => e.type === 'move' && e.started)) {
         const unit = rootGetters['world/getById'](event.actorId)
         if (!unit || !unit.target) {
           dispatch('complete', event.id)
+          finished = true
         }
       }
+      if (finished) {
+        dispatch('startPending')
+      }
     },
-    // событие выполнено: удаляем его
-    complete: ({ commit }, id) => {
+    // событие выполнено: удаляем его и запускаем следующее по цепочке
+    complete: ({ state, commit }, id) => {
+      const event = state.list.find((e) => e.id === id)
+      if (!event) {
+        return
+      }
       commit(MUTATIONS.REMOVE, id)
+      if (event.nextId !== null) {
+        commit(MUTATIONS.SET_STATUS, { id: event.nextId, status: EVENT_STATUS.ACTIVE })
+      }
     },
     // отменить все события объекта (объект уничтожен)
     cancelActor: ({ commit }, actorId) => {

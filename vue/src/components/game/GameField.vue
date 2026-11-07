@@ -197,11 +197,13 @@ const resetMouse = () => {
   store.dispatch('camera/setEdgeScroll', { x: 0, y: 0 })
 }
 
-// ПКМ: приказ выбранным юнитам - идти к точке строем или атаковать чужого юнита под курсором
+// ПКМ: приказ выбранным юнитам - идти к точке строем или атаковать чужого юнита под курсором.
+// С зажатым Shift приказ добавляется в конец очереди, без Shift очередь заменяется
 const moveSelected = (e: MouseEvent) => {
   store.dispatch('events/orderByClick', {
     actorIds: selectedUnits.value.map((u) => u.id),
     point: toWorld(e),
+    append: e.shiftKey,
   })
 }
 

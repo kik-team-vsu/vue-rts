@@ -21,12 +21,14 @@
     <template v-else-if="selectedUnits.length > 1">
       <div class="name">Выбрано юнитов: {{ selectedUnits.length }}</div>
       <div>ПКМ — отправить группу</div>
+      <div>Shift + ПКМ — добавить точку в очередь</div>
     </template>
     <template v-else>
       <div>ЛКМ — выбрать</div>
       <div>ЛКМ с протяжкой — выбрать юнитов рамкой</div>
       <div>Shift + ЛКМ — добавить или убрать юнита</div>
       <div>ПКМ — идти</div>
+      <div>Shift + ПКМ — добавить точку в очередь</div>
       <div>Курсор к краю экрана — камера</div>
       <div>Зажать колёсико — двигать камеру</div>
     </template>
@@ -115,12 +117,15 @@ const unitTerrain = computed(() => {
 // что юнит делает сейчас - по его текущему событию
 const currentEvent = computed<GameEvent | null>(() => (unit.value ? store.getters['events/getCurrent'](unit.value.id) : null))
 
+// сколько приказов ждут после текущего
+const queuedCount = computed(() => (unit.value ? store.getters['events/getByActor'](unit.value.id).length - 1 : 0))
+
 const unitAction = computed(() => {
   if (!unit.value) {
     return undefined
   }
   if (currentEvent.value?.type === 'move') {
-    return 'Движется'
+    return queuedCount.value > 0 ? `Движется, в очереди ещё ${queuedCount.value}` : 'Движется'
   }
   return 'Стоит'
 })
