@@ -2,7 +2,7 @@ import START_UNITS, {OBJECT_TYPES, START_OBJECTS, UNIT_TYPES} from '@/game/confi
 import {SCENARIOS} from '@/game/scenarios'
 import {advanceUnits, orderUnit} from '@/game/movement'
 //import {isAreaFree, staticFootprint, unitFootprint} from '@/game/spatial'
-import {isFootprintTerrainPassable} from '@/game/terrain'
+import {bridgesOf, isFootprintTerrainPassable} from '@/game/terrain'
 import {findNearestFreePosition, isAreaFree, staticFootprint, unitFootprint} from '@/game/spatial'
 
 // Хранилище всех элементов карты: статичные объекты (здания, деревья), юниты и зоны местности.
@@ -22,9 +22,11 @@ const MUTATIONS = {
     REMOVE_PRODUCTION: 'REMOVE_PRODUCTION',
 }
 
-// новая постройка ставится только на сушу, новый юнит - только на свою местность
+// новая постройка ставится только на сушу, новый юнит - только на свою местность;
+// мосты не мешают: по их настилу проходят и юниты, и новые постройки
 const fitsTerrain = (state, kind, object, area) =>
-    isFootprintTerrainPassable(area, state.terrainZones, kind === 'unit' ? UNIT_TYPES[object.type].terrain : 'land')
+    isFootprintTerrainPassable(area, state.terrainZones,
+        kind === 'unit' ? UNIT_TYPES[object.type].terrain : 'land', bridgesOf(state.objects))
 
 const canAddObject = (state, {kind, object}) => {
     if (!object || !Number.isSafeInteger(object.id) || object.id <= 0 ||

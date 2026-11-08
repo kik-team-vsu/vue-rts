@@ -88,9 +88,12 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useStore } from 'vuex'
 import HpBar from './HpBar.vue'
 import { groupColor } from '@/game/config'
 import { depthZIndex, worldToScreen } from '@/game/coords'
+import { overlaps, unitFootprint } from '@/game/spatial'
+import { bridgesOf } from '@/game/terrain'
 import type { Point, Unit, UnitType } from '@/game/types'
 
 // Юнит: у пеших - человечек, у водных - лодка или корабль; точка position - центр на воде.
@@ -100,6 +103,14 @@ const props = defineProps<{
   type: UnitType
   selected: boolean
 }>()
+
+const store = useStore()
+
+// Судно на прямоугольнике моста проходит под настилом: z-index 1 ниже слоя мостов
+// (z-index 2 в GameField). Пешие ходят по настилу и остаются выше него
+const underBridge = computed(() => props.type.terrain === 'water' &&
+  bridgesOf(store.getters['world/getObjects'])
+    .some((bridge) => overlaps(unitFootprint(props.unit), bridge)))
 
 // Событие для родителя (GameField): если на юнита кликнули, его надо выбрать
 // С зажатым shift юнит добавляется к выбору или убирается из него
@@ -235,7 +246,7 @@ const style = computed(() => {
     top: top + 'px',
     width: props.type.width + 'px',
     height: props.type.height + 'px',
-    zIndex: depthZIndex(point),
+    zIndex: underBridge.value ? 1 : depthZIndex(point),
     '--strike-period': strikePeriod.value + 's',
   }
 })

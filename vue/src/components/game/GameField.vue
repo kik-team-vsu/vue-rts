@@ -17,7 +17,21 @@
         <!-- уничтоженный объект не пропадает сразу, а проигрывает анимацию destroy -->
         <TransitionGroup name="destroy">
           <GameStaticObject
-              v-for="o in objects"
+              v-for="o in staticObjects"
+              :key="o.id"
+              :object="o"
+              :type="OBJECT_TYPES[o.type]"
+              :selected="selectedIds.includes(o.id)"
+              @select="select(o.id)"/>
+        </TransitionGroup>
+      </div>
+
+      <!-- настилы мостов: отдельный слой между судами, проходящими под мостом,
+           и юнитами на настиле (z-index слоёв - в стилях ниже) -->
+      <div class="bridges-layer">
+        <TransitionGroup name="destroy">
+          <GameStaticObject
+              v-for="o in bridges"
               :key="o.id"
               :object="o"
               :type="OBJECT_TYPES[o.type]"
@@ -91,7 +105,11 @@ let dragLast: Point = { x: 0, y: 0 }
 // Игровой логики здесь нет: элементы карты, события и камера живут в сторе, а рисуют их дочерние компоненты.
 // Объекты и юниты передаются пропсами: уничтоженный объект ещё проигрывает анимацию destroy со своими последними данными
 const store = useStore()
-const objects = computed<StaticObject[]>(() => store.getters['world/getObjects'])
+// объекты по слоям: мосты рисуются своим слоем выше судов под настилом (см. .bridges-layer)
+const staticObjects = computed<StaticObject[]>(() =>
+    store.getters['world/getObjects'].filter((o: StaticObject) => !OBJECT_TYPES[o.type]?.passable))
+const bridges = computed<StaticObject[]>(() =>
+    store.getters['world/getObjects'].filter((o: StaticObject) => OBJECT_TYPES[o.type]?.passable))
 const units = computed<Unit[]>(() => store.getters['world/getUnits'])
 const selectedIds = computed<number[]>(() => store.getters['selection/getSelectedIds'])
 const selectedUnits = computed<Unit[]>(() => store.getters['selection/getSelectedUnits'])
@@ -383,6 +401,12 @@ onUnmounted(() => {
   z-index: 0;
 }
 
+// настил моста: выше судов под ним (z-index 1 в GameUnit) и ниже юнитов на настиле
+.bridges-layer {
+  position: absolute;
+  z-index: 2;
+}
+
 // уничтожение: объект сжимается к основанию и исчезает
 .destroy-leave-active {
   animation: destroy 0.4s ease-in forwards;
@@ -402,8 +426,10 @@ onUnmounted(() => {
 }
 
 // атака: сплошная красная линия пульсирует, пока идёт бой
+// (z-index выше настила моста: линия видна и над мостом)
 .attack-line {
   position: absolute;
+  z-index: 3;
   height: 0;
   margin-top: -1px;
   border-top: 2px solid rgba(220, 38, 38, 0.85);
@@ -433,6 +459,7 @@ onUnmounted(() => {
 // кольцо на цели атаки: тот же эллипс в плоскости карты, что и target-mark
 .attack-mark {
   position: absolute;
+  z-index: 3;
   width: 16px;
   height: 8px;
   margin: -4px 0 0 -8px;

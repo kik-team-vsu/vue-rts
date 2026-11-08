@@ -7,7 +7,7 @@
     <!-- здание или дерево: две ближние к камере стены и верх, затем крыша или ветки, если они есть у типа -->
     <div class="face wall" :style="faces.leftWall" />
     <div class="face wall dark" :style="faces.rightWall" />
-    <div class="face top" :style="faces.top" />
+    <div class="face top" :class="deckClass" :style="faces.top" />
     <Battlements v-if="type.roofHeight && type.roofType === 'battlements'" :type="type" />
     <PyramidRoof v-else-if="type.roofHeight" :type="type" />
     <TreeBranches v-if="type.branchColor" :type="type" />
@@ -46,6 +46,9 @@ const props = defineProps<{
 }>()
 
 const store = useStore()
+
+// настил моста
+const deckClass = computed(() => (props.type.image ? `deck--${props.object.type}` : null))
 
 // что здание создаёт сейчас (null - ничего): полоска производства над полоской жизней
 const production = computed<ProductionJob | null>(() => store.getters['world/getProductionByBuilding'](props.object.id))
@@ -106,7 +109,7 @@ const faces = computed(() => {
       backgroundColor: color,
       transform: `matrix(${ISO_SCALE}, ${-ISO_SCALE / 2}, 0, 1, 0, 0)`,
     },
-    // верх - основание, поднятое на высоту стен
+    // верх - основание, поднятое на высоту стен; у моста настил рисует класс deck--*
     top: {
       left: -width / 2 + 'px',
       top: -height / 2 - wallHeight + 'px',
@@ -132,5 +135,19 @@ const faces = computed(() => {
 // та же изометрия для ромбовидности
 .top {
   @include iso-flat;
+}
+
+// настил моста: доски
+.deck--bridge,
+.deck--bridge-vertical {
+  background-size: 100% 100%;
+}
+
+.deck--bridge {
+  background-image: url('../../assets/bridge.svg');
+}
+
+.deck--bridge-vertical {
+  background-image: url('../../assets/bridge-vertical.svg');
 }
 </style>

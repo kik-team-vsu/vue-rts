@@ -28,6 +28,8 @@ export interface ObjectType {
   roofColor?: string
   roofType?: 'pyramid' | 'battlements'
   branchColor?: string   // цвет веток (если применим)
+  image?: string         // картинка верха объекта вместо цвета: имя файла из assets (настил моста)
+  passable?: boolean     // true — по объекту можно ходить: он не препятствие, вода под ним проходима (мост)
 }
 
 // Здание: квадрат size × size клеток
