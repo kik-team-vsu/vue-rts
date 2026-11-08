@@ -34,6 +34,7 @@ export interface ObjectType {
 export interface BuildingType extends ObjectType {
   size: number // сторона квадрата в клетках сетки
   maxHp: number
+  spawns?: string[]
 }
 
 export interface UnitType extends ObjectType {
@@ -114,4 +115,5 @@ export interface Command {
   id: string
   label: string
   action: string // название action в сторе
+  payload?: string
 }
