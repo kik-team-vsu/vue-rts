@@ -5,6 +5,7 @@ import selection from './selection'
 import events from './events'
 import camera from './camera'
 import engine from './engine'
+import construction from './construction'
 
 export default createStore({
   modules: {
@@ -14,5 +15,6 @@ export default createStore({
     events,
     camera,
     engine,
+    construction,
   },
 })

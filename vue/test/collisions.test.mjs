@@ -11,7 +11,7 @@ const server = await createServer({
   root: fileURLToPath(new URL('../', import.meta.url)),
   cacheDir: fileURLToPath(new URL('../node_modules/.vite-test', import.meta.url)),
   resolve: { alias: { '@': fileURLToPath(new URL('../src', import.meta.url)) } },
-  server: { middlewareMode: true, hmr: false },
+  server: { middlewareMode: true, hmr: false, ws: false },
   optimizeDeps: { noDiscovery: true, include: [] },
   appType: 'custom',
   logLevel: 'error',
@@ -26,6 +26,7 @@ const { default: game } = await server.ssrLoadModule('/src/store/game.js')
 const { default: worldModule } = await server.ssrLoadModule('/src/store/world.js')
 const { default: selection } = await server.ssrLoadModule('/src/store/selection.js')
 const { default: events } = await server.ssrLoadModule('/src/store/events.js')
+const { default: construction } = await server.ssrLoadModule('/src/store/construction.js')
 const { isAreaFree, isSweepFree, unitFootprint, staticFootprint, squareFootprint, overlaps, findNearestFreePosition } = spatial
 
 const unit = (id, x, y, group = 1, type = 'warrior') => ({
@@ -51,7 +52,7 @@ const simulate = (state, frames = 600, delta = 1 / 60) => {
   }
 }
 const makeStore = (units = [unit(1, -200, 0), unit(2, 800, 800, 2)], objects = []) => {
-  // столкновения проверяем на чистой суше: местность сценариев здесь не нужна
+  // Столкновения проверяем на чистой суше: местность сценариев здесь не нужна
   const worldState = { ...worldModule.state(), units, objects, terrainZones: [] }
   const gameState = { ...game.state(), started: true }
   return createStore({
@@ -61,6 +62,7 @@ const makeStore = (units = [unit(1, -200, 0), unit(2, 800, 800, 2)], objects = [
       world: { ...worldModule, state: () => worldState },
       selection,
       events,
+      construction,
     },
   })
 }

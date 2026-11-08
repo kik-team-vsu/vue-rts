@@ -1,7 +1,7 @@
 import START_UNITS, {OBJECT_TYPES, START_OBJECTS, UNIT_TYPES} from '@/game/config'
 import {SCENARIOS} from '@/game/scenarios'
 import {advanceUnits, orderUnit} from '@/game/movement'
-//import {isAreaFree, staticFootprint, unitFootprint} from '@/game/spatial'
+import {getBuildingError} from '@/game/building'
 import {bridgesOf, isFootprintTerrainPassable} from '@/game/terrain'
 import {findNearestFreePosition, isAreaFree, staticFootprint, unitFootprint} from '@/game/spatial'
 
@@ -22,11 +22,12 @@ const MUTATIONS = {
     REMOVE_PRODUCTION: 'REMOVE_PRODUCTION',
 }
 
-// новая постройка ставится только на сушу, новый юнит - только на свою местность;
-// мосты не мешают: по их настилу проходят и юниты, и новые постройки
+// Новый юнит появляется на своей местности, в том числе на проходимом настиле моста
 const fitsTerrain = (state, kind, object, area) =>
     isFootprintTerrainPassable(area, state.terrainZones,
         kind === 'unit' ? UNIT_TYPES[object.type].terrain : 'land', bridgesOf(state.objects))
+
+const nextId = (objects, units) => Math.max(0, ...objects.map((object) => object.id), ...units.map((unit) => unit.id)) + 1
 
 const canAddObject = (state, {kind, object}) => {
     if (!object || !Number.isSafeInteger(object.id) || object.id <= 0 ||
@@ -39,13 +40,16 @@ const canAddObject = (state, {kind, object}) => {
     }
     if (kind === 'static' && Object.hasOwn(OBJECT_TYPES, object.type)) {
         const type = OBJECT_TYPES[object.type]
+        if ('size' in type) {
+            return Number.isFinite(object.hp) && object.hp > 0 && getBuildingError(state, staticFootprint(object)) === ''
+        }
         return (!('maxHp' in type) || (Number.isFinite(object.hp) && object.hp > 0)) &&
             isAreaFree(state, staticFootprint(object)) && fitsTerrain(state, kind, object, staticFootprint(object))
     }
     return false
 }
 
-// можно ли сейчас менять мир: сценарий идёт и не на паузе
+// Можно ли сейчас менять мир: сценарий идёт и не на паузе
 const isActive = (rootState, rootGetters) => rootGetters['game/isRunning'] && !rootState.game.paused
 
 // Юнит, готовый появиться из здания: объект юнита и ближайшая свободная позиция рядом.
@@ -53,15 +57,14 @@ const isActive = (rootState, rootGetters) => rootGetters['game/isRunning'] && !r
 const makeSpawnedUnit = (state, building, unitType) => {
     const unitStats = UNIT_TYPES[unitType]
     const unit = {
-        // ID общий для юнитов и зданий: берём следующий после самого большого
-        id: Math.max(0, ...[...state.objects, ...state.units].map((o) => o.id)) + 1,
+        id: state.nextObjectId,
         type: unitType,
         group: building.group,
         hp: unitStats.maxHp,
         position: building.position,
         target: null,
     }
-    // ищем от центра здания: первое свободное место окажется вплотную к нему
+    // Ищем от центра здания: первое свободное место окажется вплотную к нему
     const position = findNearestFreePosition(state, unitFootprint(unit), {
         accept: (point) => fitsTerrain(state, 'unit', unit, unitFootprint({...unit, position: point})),
     })
@@ -74,9 +77,10 @@ export default {
         return {
             objects: structuredClone(START_OBJECTS),
             units: structuredClone(START_UNITS),
-            // до старта в меню показываем карту первого сценария - базового
+            nextObjectId: nextId(START_OBJECTS, START_UNITS),
+            // До старта в меню показываем карту первого сценария - базового
             terrainZones: structuredClone(SCENARIOS[0].terrain),
-            // задания производства юнитов в зданиях (ProductionJob): у здания не бывает двух сразу
+            // Задания производства юнитов в зданиях (ProductionJob): у здания не бывает двух сразу
             production: [],
         }
     },
@@ -85,23 +89,24 @@ export default {
         getUnits: (state) => state.units,
         getTerrainZones: (state) => state.terrainZones,
         getAll: (state) => [...state.objects, ...state.units],
-        // объект или юнит по id, null если такого нет
+        // Объект или юнит по id, null если такого нет
         getById: (state) => (id) => state.objects.find((o) => o.id === id) ?? state.units.find((u) => u.id === id) ?? null,
-        // группы, у которых остались юниты или здания; группа 0 не считается
+        // Группы, у которых остались юниты или здания; группа 0 не считается
         getAliveGroups: (state, getters) => [...new Set(getters.getAll.map((o) => o.group).filter((group) => group > 0))],
-        // задание производства здания по его id, null - здание ничего не создаёт
+        // Задание производства здания по его id, null - здание ничего не создаёт
         getProductionByBuilding: (state) => (buildingId) =>
             state.production.find((job) => job.buildingId === buildingId) ?? null,
-        // сколько живых юнитов типа unitType сейчас у группы (мёртвых в сторе не бывает - removeDead убирает каждый кадр);
-        // для лимита создания: UNIT_TYPES[unitType].maxPerGroup
+        // Сколько живых юнитов типа unitType сейчас у группы (мёртвых в сторе не бывает - removeDead убирает каждый кадр);
+        // Для лимита создания: UNIT_TYPES[unitType].maxPerGroup
         countUnitsOfType: (state) => (group, unitType) =>
             state.units.filter((u) => u.group === group && u.type === unitType).length,
     },
     mutations: {
-        // расстановка и местность сценария
+        // Расстановка и местность сценария
         [MUTATIONS.LOAD]: (state, scenario) => {
             state.objects = structuredClone(scenario.objects)
             state.units = structuredClone(scenario.units)
+            state.nextObjectId = nextId(scenario.objects, scenario.units)
             state.terrainZones = structuredClone(scenario.terrain)
             state.production = []
         },
@@ -118,13 +123,14 @@ export default {
             } else {
                 state.objects.push(object)
             }
+            state.nextObjectId = Math.max(state.nextObjectId, object.id + 1)
         },
         [MUTATIONS.REMOVE_OBJECT]: (state, id) => {
             state.units = state.units.filter((u) => u.id !== id)
             state.objects = state.objects.filter((o) => o.id !== id)
         },
-        // проложить юниту маршрут к точке (вызывает стор событий при старте события move или attack);
-        // атака передаёт targetId и isAttacking, обычное движение их сбрасывает
+        // Проложить юниту маршрут к точке (вызывает стор событий при старте события move или attack);
+        // Атака передаёт targetId и isAttacking, обычное движение их сбрасывает
         [MUTATIONS.SET_UNIT_TARGET]: (state, {id, target, targetId, isAttacking, reserved = []}) => {
             const unit = state.units.find((u) => u.id === id)
             if (unit) {
@@ -176,7 +182,7 @@ export default {
         },
     },
     actions: {
-        // расставить объекты и местность сценария
+        // Расставить объекты и местность сценария
         load: ({commit}, scenario) => {
             commit(MUTATIONS.LOAD, scenario)
         },
@@ -188,18 +194,18 @@ export default {
         },
         // Спавн: выбранное здание начинает создавать юнита типа unitType.
         // Юнит появится рядом со зданием через UNIT_TYPES[unitType].buildSeconds секунд -
-        // до этого на здании и кнопке растёт полоса прогресса (updateProduction)
+        // До этого на здании и кнопке растёт полоса прогресса (updateProduction)
         spawnUnit: ({state, commit, getters, rootGetters}, unitType) => {
             const building = rootGetters['selection/getSelected']
             if (!building || !Object.hasOwn(OBJECT_TYPES, building.type) || !Object.hasOwn(UNIT_TYPES, unitType)) {
                 return false
             }
             const spawns = OBJECT_TYPES[building.type].spawns ?? []
-            // одно задание на здание: пока идёт производство, новое не начнём
+            // Одно задание на здание: пока идёт производство, новое не начнём
             if (!spawns.includes(unitType) || state.production.some((job) => job.buildingId === building.id)) {
                 return false
             }
-            // лимит юнитов этого типа у группы здания достигнут
+            // Лимит юнитов этого типа у группы здания достигнут
             if (getters.countUnitsOfType(building.group, unitType) >= UNIT_TYPES[unitType].maxPerGroup) {
                 return false
             }
@@ -212,9 +218,9 @@ export default {
             return true
         },
         // Производство (каждый кадр из engine/tick): время заданий идёт вперёд,
-        // готовые создают юнита на ближайшем свободном месте у здания.
+        // Готовые создают юнита на ближайшем свободном месте у здания.
         // Здание погибло - задание пропадает; место занято или лимит группы достигнут -
-        // ждём и пробуем в следующем кадре
+        // Ждём и пробуем в следующем кадре
         updateProduction: ({state, commit, dispatch, getters, rootState, rootGetters}, secondsPassed) => {
             if (!isActive(rootState, rootGetters)) {
                 return
@@ -228,7 +234,7 @@ export default {
                         commit(MUTATIONS.REMOVE_PRODUCTION, job.buildingId)
                         return
                     }
-                    // лимит могли занять, пока шло производство (другое здание той же группы)
+                    // Лимит могли занять, пока шло производство (другое здание той же группы)
                     if (getters.countUnitsOfType(building.group, job.unitType) >= UNIT_TYPES[job.unitType].maxPerGroup) {
                         return
                     }
@@ -239,11 +245,12 @@ export default {
                 })
         },
         // Уничтожить объект по id: он пропадает с карты, из выбора, вместе со своими событиями и производством
-        destroyObject: ({commit, dispatch}, id) => {
+        destroyObject: ({commit, dispatch, rootGetters}, id) => {
             commit(MUTATIONS.REMOVE_OBJECT, id)
             commit(MUTATIONS.REMOVE_PRODUCTION, id)
             dispatch('selection/deselect', id, {root: true})
             dispatch('events/cancelActor', id, {root: true})
+            if (!rootGetters['game/isRunning']) dispatch('construction/cancel', null, {root: true})
         },
         // Самоуничтожение выбранных юнитов
         destroySelectedUnits: ({dispatch, rootGetters}) => {
