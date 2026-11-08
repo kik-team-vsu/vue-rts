@@ -76,11 +76,15 @@ const orders = computed(() => {
   transform-origin: left center;
   pointer-events: none;
 
+  // путь виден над настилом моста (слой мостов - z-index 2 в GameField)
+  z-index: 3;
+
   @include line(dashed, rgba($selected-color, 0.7));
 }
 
 .target-mark {
   position: absolute;
+  z-index: 3;
   width: 16px;
   height: 8px;
   margin: -4px 0 0 -8px;

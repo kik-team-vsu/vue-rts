@@ -92,6 +92,7 @@ export const START_OBJECTS: StaticObject[] = [
   { id: 5, type: 'tree', group: 0, position: { x: 550, y: -150 } },
   { id: 6, type: 'castle', group: 1, hp: 500, position: { x: -900, y: -200 } },
   { id: 7, type: 'castle', group: 2, hp: 500, position: { x: 600, y: 300 } },
+  { id: 30, type: 'castle', group: 3, hp: 500, position: { x: 250, y: -1100 } },
   { id: 18, type: 'tower', group: 1, hp: 120, position: { x: -675, y: 325 } },
   { id: 19, type: 'barracks', group: 2, hp: 350, position: { x: 325, y: 875 } },
   { id: 20, type: 'barracks', group: 3, hp: 350, position: { x: 625, y: -1125 } },
