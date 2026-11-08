@@ -2,7 +2,7 @@ import { MAP, OBJECT_TYPES } from './config'
 import { ISO_SCALE } from './coords'
 import { isInsideMap, SEARCH_STEP, squareFootprint, staticFootprint } from './spatial'
 import type { Footprint } from './spatial'
-import { isFootprintTerrainPassable } from './terrain'
+import { isFootprintTerrainPassable, bridgesOf } from './terrain'
 import type { Point, StaticObject, TerrainType, TerrainZone } from './types'
 
 // Растровые маски для A*. Статика сценария не меняется между приказами,
@@ -107,17 +107,22 @@ const buildGrid = (
     blocked: new Uint8Array(size), hidden: new Uint8Array(size), near: new Uint8Array(size), component: new Int32Array(size),
   }
   for (const object of objects) {
+    // Проходимые объекты (мосты) не закрашиваем: по настилу ходят,
+    // воду под ним делает проходимой bridgesOf в проверке местности ниже
+    if (OBJECT_TYPES[object.type]?.passable) continue
     paintArea(grid.blocked, grid.near, staticFootprint(object), margin)
     paintHidden(grid.hidden, grid.near, object, margin)
   }
+  const bridges = bridgesOf(objects)
   for (let cell = 0; cell < size; cell++) {
     if (grid.blocked[cell]) continue
     const point = cellToPoint(cell)
-    if (!isInsideMap(squareFootprint(point, margin)) || !isFootprintTerrainPassable(squareFootprint(point, margin), zones, terrain)) {
+    if (!isInsideMap(squareFootprint(point, margin)) ||
+      !isFootprintTerrainPassable(squareFootprint(point, margin), zones, terrain, bridges)) {
       grid.blocked[cell] = 1
       grid.near[cell] = 1
     } else if (!grid.near[cell] && zones.length &&
-      !isFootprintTerrainPassable(squareFootprint(point, margin + EDGE_PAD), zones, terrain)) {
+      !isFootprintTerrainPassable(squareFootprint(point, margin + EDGE_PAD), zones, terrain, bridges)) {
       grid.near[cell] = 1
     }
   }

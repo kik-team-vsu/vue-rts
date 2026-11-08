@@ -1,8 +1,8 @@
 import { OBJECT_TYPES } from './config'
 import { ISO_SCALE } from './coords'
 import { isAreaFree, isSweepFree, squareFootprint } from './spatial'
-import type { CollisionOptions } from './spatial'
-import { isFootprintTerrainPassable } from './terrain'
+import type { CollisionOptions, Footprint } from './spatial'
+import { bridgesOf, isFootprintTerrainPassable } from './terrain'
 import type { Point, StaticObject, TerrainType, TerrainZone, Unit } from './types'
 
 export interface NavigationOptions extends CollisionOptions {
@@ -11,8 +11,10 @@ export interface NavigationOptions extends CollisionOptions {
   terrainZones?: readonly TerrainZone[] // местность сценария: реки, озёра, горы
 }
 
-const isTerrainFree = (point: Point, margin: number, terrain?: TerrainType | 'both', zones: readonly TerrainZone[] = []): boolean =>
-  isFootprintTerrainPassable(squareFootprint(point, margin), zones, terrain)
+const isTerrainFree = (
+  point: Point, margin: number, terrain?: TerrainType | 'both', zones: readonly TerrainZone[] = [],
+  bridges: readonly Footprint[] = [],
+): boolean => isFootprintTerrainPassable(squareFootprint(point, margin), zones, terrain, bridges)
 
 // Область, где высокий объект закрывает юнита в изометрии
 export const isHidden = (point: Point, objects: readonly StaticObject[], margin: number): boolean =>
@@ -36,7 +38,7 @@ export const isBlocked = (
   point: Point, objects: readonly StaticObject[], margin: number, options: NavigationOptions = {},
 ): boolean => !isAreaFree({ objects, units: options.units ?? [] }, squareFootprint(point, margin), options) ||
   isHidden(point, objects, margin) ||
-  !isTerrainFree(point, margin, options.terrain, options.terrainZones)
+  !isTerrainFree(point, margin, options.terrain, options.terrainZones, bridgesOf(objects))
 
 export const isSegmentFree = (
   from: Point, to: Point, objects: readonly StaticObject[], margin: number, options: NavigationOptions = {},
@@ -45,11 +47,12 @@ export const isSegmentFree = (
   // Из визуальной зоны разрешён выход; физическое наложение проверено выше.
   // Для визуальной зоны достаточно шага 5 мировых пикселей.
   const count = Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / 5)
+  const bridges = bridgesOf(objects)
   let leaving = isHidden(from, objects, margin)
   for (let i = 1; i <= count; i++) {
     const t = i / count
     const point = { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }
-    if (!isTerrainFree(point, margin, options.terrain, options.terrainZones)) return false
+    if (!isTerrainFree(point, margin, options.terrain, options.terrainZones, bridges)) return false
     const hidden = isHidden(point, objects, margin)
     if (hidden && !leaving) return false
     if (!hidden) leaving = false

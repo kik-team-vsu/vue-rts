@@ -54,8 +54,11 @@ export const overlaps = (a: Footprint, b: Footprint): boolean =>
   Math.abs(a.position.x - b.position.x) < a.halfWidth + b.halfWidth - COLLISION_EPSILON &&
   Math.abs(a.position.y - b.position.y) < a.halfHeight + b.halfHeight - COLLISION_EPSILON
 
+// Проходимые объекты (мосты) препятствием не считаются: по настилу ходят юниты
 const getObstacles = (world: CollisionWorld, options: CollisionOptions): Footprint[] => [
-  ...world.objects.filter((object) => object.id !== options.ignoreId).map(staticFootprint),
+  ...world.objects
+    .filter((object) => object.id !== options.ignoreId && !OBJECT_TYPES[object.type]?.passable)
+    .map(staticFootprint),
   ...world.units.filter((unit) => unit.id !== options.ignoreId).map(unitFootprint),
   ...(options.reserved ?? []),
 ]

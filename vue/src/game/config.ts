@@ -17,7 +17,13 @@ const WATER_ZONES: TerrainZone[] = [
   { type: 'river', x: -350, y: -1500, width: 250, height: 2000 },
   { type: 'river', x: -350, y: -670, width: 970, height: 250 },
   { type: 'lake', x: 600, y: -700, width: 500, height: 450 },
-  { type: 'lake', x: -450, y: 500, width: 400, height: 400},
+  { type: 'lake', x: -450, y: 500, width: 500, height: 400},
+]
+
+// Зоны гор
+const MOUNTAINS_ZONES: TerrainZone[] = [
+  { type: 'mountain', x: -1100, y: -1200, width: 500, height: 500 },
+  { type: 'mountain', x: -800, y: 1250, width: 1250, height: 250 }
 ]
 
 // Песчаная подложка: прямоугольник водоёма плюс узкая полоса по каждой стороне.
@@ -36,7 +42,7 @@ const shoreOf = (water: TerrainZone, width: number): TerrainZone => {
 export const TERRAIN_ZONES: TerrainZone[] = [
   ...WATER_ZONES.map((water) => shoreOf(water, SAND_WIDTH)),
   ...WATER_ZONES,
-  { type: 'mountain', x: -1100, y: -1200, width: 500, height: 500 },
+  ...MOUNTAINS_ZONES,
 ]
 
 // edgePx - зона у края экрана, где камера начинает двигаться
@@ -52,6 +58,8 @@ export const OBJECT_TYPES: Record<string, ObjectType | BuildingType> = {
   tower: { name: 'Башня', width: cells(1), height: cells(1), color: '#78716c', wallHeight: 90, roofHeight: 30, roofColor: '#44403c', size: 1, maxHp: 120 },
   barracks: { name: 'Казарма', width: cells(3), height: cells(3), color: '#92400e', wallHeight: 45, roofHeight: 30, roofColor: '#166534', size: 3, maxHp: 350, spawns: ['warrior'] },
   dock: { name: 'Пристань', width: cells(2), height: cells(2), color: '#a8a29e', wallHeight: 30, roofHeight: 25, roofColor: '#0369a1', size: 2, maxHp: 150, spawns: ['boat', 'warship'] },
+  bridge: { name: 'Мост', width: cells(7), height: cells(2), color: '#92400e', image: 'bridge.svg', passable: true },
+  'bridge-vertical': { name: 'Мост', width: cells(2), height: cells(7), color: '#92400e', image: 'bridge-vertical.svg', passable: true },
 }
 
 export const UNIT_TYPES: Record<string, UnitType> = {
@@ -91,6 +99,8 @@ export const START_OBJECTS: StaticObject[] = [
   { id: 22, type: 'house', group: 3, hp: 200, position: { x: 900, y: -1250 } },
   { id: 26, type: 'dock', group: 1, hp: 150, position: { x: -500, y: 700 } },
   { id: 27, type: 'dock', group: 2, hp: 150, position: { x: 850, y: -200 } },
+  { id: 28, type: 'bridge', group: 0, position: { x: -225, y: 300 } },
+  { id: 29, type: 'bridge-vertical', group: 0, position: { x: 400, y: -545 } },
 ]
 
 const START_UNITS: Unit[] = [

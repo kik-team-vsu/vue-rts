@@ -47,6 +47,10 @@ const props = defineProps<{
 
 const store = useStore()
 
+// картинки верха объектов (type.image, настил моста): Vite собирает все svg из assets
+const objectImages = import.meta.glob('../../assets/*.svg', { eager: true, query: '?url', import: 'default' }) as Record<string, string>
+const objectImageUrl = (name: string) => objectImages[`../../assets/${name}`]
+
 // что здание создаёт сейчас (null - ничего): полоска производства над полоской жизней
 const production = computed<ProductionJob | null>(() => store.getters['world/getProductionByBuilding'](props.object.id))
 
@@ -86,6 +90,8 @@ const faces = computed(() => {
   const wallHeight = props.type.wallHeight ?? 0
   const left = worldToScreen({ x: -width / 2, y: height / 2 })
   const front = worldToScreen({ x: width / 2, y: height / 2 })
+  // настил моста: картинка верха вместо цвета
+  const image = props.type.image ? objectImageUrl(props.type.image) : null
   // matrix наклоняет стену вдоль стороны основания: по горизонтали как у земли, вертикаль остаётся вертикалью
   return {
     // стена вдоль оси x мира: от левого угла вправо-вниз к ближнему
@@ -106,13 +112,14 @@ const faces = computed(() => {
       backgroundColor: color,
       transform: `matrix(${ISO_SCALE}, ${-ISO_SCALE / 2}, 0, 1, 0, 0)`,
     },
-    // верх - основание, поднятое на высоту стен
+    // верх - основание, поднятое на высоту стен; у моста вместо цвета картинка настила
     top: {
       left: -width / 2 + 'px',
       top: -height / 2 - wallHeight + 'px',
       width: width + 'px',
       height: height + 'px',
       backgroundColor: color,
+      ...(image ? { backgroundImage: `url(${image})`, backgroundSize: '100% 100%' } : {}),
     },
   }
 })
