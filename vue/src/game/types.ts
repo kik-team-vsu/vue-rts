@@ -42,9 +42,20 @@ export interface UnitType extends ObjectType {
   maxHp: number
   strength: number // урон за один удар
   attackSpeed: number // ударов в секунду
+  buildSeconds: number // сколько секунд здание создаёт юнита этого типа
+  maxPerGroup: number // максимум живых юнитов этого типа у одной группы: спавн останавливается
   terrain?: TerrainType | 'both' // где юнит может ходить, по умолчанию 'both' - везде
   shape?: 'human' | 'boat' | 'warship' // как рисовать юнит, по умолчанию 'human' - человечек
   footprint?: number // сторона квадрата столкновений; по умолчанию width (у длинных кораблей уже спрайта)
+}
+
+// Задание производства: здание buildingId создаёт юнита типа unitType,
+// прошло elapsed из duration секунд (створ world/updateProduction, юнит появится у здания)
+export interface ProductionJob {
+  buildingId: number
+  unitType: string
+  elapsed: number
+  duration: number
 }
 
 // Любой игровой объект

@@ -11,6 +11,11 @@
     <Battlements v-if="type.roofHeight && type.roofType === 'battlements'" :type="type" />
     <PyramidRoof v-else-if="type.roofHeight" :type="type" />
     <TreeBranches v-if="type.branchColor" :type="type" />
+    <ProductionBar
+        v-if="production"
+        :progress="production.elapsed / production.duration"
+        :offset="hpBarOffset"
+        :width="hpBarWidth" />
     <HpBar
         v-if="object.hp !== undefined && maxHp !== null"
         :hp="object.hp"
@@ -23,12 +28,14 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useStore } from 'vuex'
 import HpBar from './HpBar.vue'
+import ProductionBar from './ProductionBar.vue'
 import Battlements from './parts/Battlements.vue'
 import PyramidRoof from './parts/PyramidRoof.vue'
 import TreeBranches from './parts/TreeBranches.vue'
 import { depthZIndex, ISO_SCALE, worldToScreen } from '@/game/coords'
-import type { BuildingType, ObjectType, StaticObject } from '@/game/types'
+import type { BuildingType, ObjectType, ProductionJob, StaticObject } from '@/game/types'
 
 // статичный объект на карте (здание, дерево): объёмная коробка с точкой привязки в центре основания
 // Компонент только рисует: данные объекта приходят из стора world через GameField и не меняются здесь
@@ -37,6 +44,11 @@ const props = defineProps<{
   type: ObjectType | BuildingType
   selected: boolean
 }>()
+
+const store = useStore()
+
+// что здание создаёт сейчас (null - ничего): полоска производства над полоской жизней
+const production = computed<ProductionJob | null>(() => store.getters['world/getProductionByBuilding'](props.object.id))
 
 // событие для родителя (GameField): если на объект кликнули, его надо выбрать
 const emit = defineEmits<{ select: [] }>()

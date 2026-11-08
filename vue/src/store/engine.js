@@ -60,8 +60,10 @@ export default {
       // атака до движения: догоняем цель, в радиусе стоим и бьём
       dispatch('events/updateAttacks', secondsPassed, { root: true })
       dispatch('world/moveUnits', secondsPassed, { root: true })
-      dispatch('events/finishArrived', null, { root: true })
-      dispatch('world/removeDead', null, { root: true })
+          dispatch('events/finishArrived', null, { root: true })
+          dispatch('world/removeDead', null, { root: true })
+          // производство юнитов в зданиях - после removeDead, чтобы погибшее здание не успело создать юнита
+          dispatch('world/updateProduction', secondsPassed, { root: true })
     },
   },
 }
