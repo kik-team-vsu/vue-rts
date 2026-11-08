@@ -36,6 +36,8 @@ import PyramidRoof from './parts/PyramidRoof.vue'
 import TreeBranches from './parts/TreeBranches.vue'
 import { depthZIndex, ISO_SCALE, worldToScreen } from '@/game/coords'
 import type { BuildingType, ObjectType, ProductionJob, StaticObject } from '@/game/types'
+import bridgeImage from '@/assets/bridge.svg'
+import bridgeVerticalImage from '@/assets/bridge-vertical.svg'
 
 // статичный объект на карте (здание, дерево): объёмная коробка с точкой привязки в центре основания
 // Компонент только рисует: данные объекта приходят из стора world через GameField и не меняются здесь
@@ -47,9 +49,12 @@ const props = defineProps<{
 
 const store = useStore()
 
-// картинки верха объектов (type.image, настил моста): Vite собирает все svg из assets
-const objectImages = import.meta.glob('../../assets/*.svg', { eager: true, query: '?url', import: 'default' }) as Record<string, string>
-const objectImageUrl = (name: string) => objectImages[`../../assets/${name}`]
+// картинки верха объектов (type.image, настил моста)
+const objectImages: Record<string, string> = {
+  'bridge.svg': bridgeImage,
+  'bridge-vertical.svg': bridgeVerticalImage,
+}
+const objectImageUrl = (name: string) => objectImages[name]
 
 // что здание создаёт сейчас (null - ничего): полоска производства над полоской жизней
 const production = computed<ProductionJob | null>(() => store.getters['world/getProductionByBuilding'](props.object.id))
