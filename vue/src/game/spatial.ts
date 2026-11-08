@@ -54,24 +54,6 @@ export const overlaps = (a: Footprint, b: Footprint): boolean =>
   Math.abs(a.position.x - b.position.x) < a.halfWidth + b.halfWidth - COLLISION_EPSILON &&
   Math.abs(a.position.y - b.position.y) < a.halfHeight + b.halfHeight - COLLISION_EPSILON
 
-// Проходимые объекты (мосты) препятствием не считаются: по настилу ходят юниты
-const getObstacles = (world: CollisionWorld, options: CollisionOptions): Footprint[] => [
-  ...world.objects
-    .filter((object) => object.id !== options.ignoreId && !OBJECT_TYPES[object.type]?.passable)
-    .map(staticFootprint),
-  ...world.units.filter((unit) => unit.id !== options.ignoreId).map(unitFootprint),
-  ...(options.reserved ?? []),
-]
-
-// Занятость вычисляется по текущему миру без отдельного кэша
-export const isAreaFree = (world: CollisionWorld, area: Footprint, options: CollisionOptions = {}): boolean => {
-  if (!isInsideMap(area)) return false
-  for (const obstacle of getObstacles(world, options)) {
-    if (!isValidFootprint(obstacle) || overlaps(area, obstacle)) return false
-  }
-  return true
-}
-
 // Расширяем препятствие на размер основания и проверяем отрезок его центра.
 // Так обнаруживаются и столкновения между началом и концом кадра.
 const segmentIntersectsObstacle = (from: Point, to: Point, area: Footprint, obstacle: Footprint): boolean => {
@@ -98,15 +80,80 @@ const segmentIntersectsObstacle = (from: Point, to: Point, area: Footprint, obst
   return enter < leave
 }
 
+// Проход мимо статичных объектов (мосты пропускаем, свой id не мешает)
+export const objectsSweepFree = (
+  objects: readonly StaticObject[], from: Point, to: Point, area: Footprint,
+  scratch: Footprint, ignoreId?: number,
+): boolean => {
+  for (const object of objects) {
+    if (object.id === ignoreId || OBJECT_TYPES[object.type]?.passable) continue
+    const type = OBJECT_TYPES[object.type]
+    if (!object.position || !type || !Number.isFinite(type.width) || !(type.width > 0) ||
+      !Number.isFinite(type.height) || !(type.height > 0)) return false
+    scratch.position = object.position
+    scratch.halfWidth = type.width / 2
+    scratch.halfHeight = type.height / 2
+    if (segmentIntersectsObstacle(from, to, area, scratch)) return false
+  }
+  return true
+}
+
+// Проход мимо готовых оснований: зарезервированные цели, юниты из приказа
+export const sweepFootprintsFree = (
+  footprints: readonly Footprint[], from: Point, to: Point, area: Footprint,
+): boolean => {
+  for (const obstacle of footprints) {
+    if (!isValidFootprint(obstacle) || segmentIntersectsObstacle(from, to, area, obstacle)) return false
+  }
+  return true
+}
+
+// Занятость вычисляется по текущему миру без отдельного кэша
+export const isAreaFree = (world: CollisionWorld, area: Footprint, options: CollisionOptions = {}): boolean => {
+  if (!isInsideMap(area)) return false
+  const scratch: Footprint = { position: { x: 0, y: 0 }, halfWidth: 0, halfHeight: 0 }
+  for (const object of world.objects) {
+    if (object.id === options.ignoreId || OBJECT_TYPES[object.type]?.passable) continue
+    const type = OBJECT_TYPES[object.type]
+    if (!object.position || !type || !Number.isFinite(type.width) || !(type.width > 0) ||
+      !Number.isFinite(type.height) || !(type.height > 0)) return false
+    scratch.position = object.position
+    scratch.halfWidth = type.width / 2
+    scratch.halfHeight = type.height / 2
+    if (overlaps(area, scratch)) return false
+  }
+  for (const unit of world.units) {
+    if (unit.id === options.ignoreId) continue
+    const type = UNIT_TYPES[unit.type]
+    if (!unit.position || !type || !Number.isFinite(type.width) || !(type.width > 0)) return false
+    scratch.position = unit.position
+    scratch.halfWidth = type.width / 2
+    scratch.halfHeight = type.width / 2
+    if (overlaps(area, scratch)) return false
+  }
+  for (const obstacle of options.reserved ?? []) {
+    if (!isValidFootprint(obstacle) || overlaps(area, obstacle)) return false
+  }
+  return true
+}
+
 // Проверка всего отрезка перемещения с учётом размеров основания
 export const isSweepFree = (
   world: CollisionWorld, area: Footprint, to: Point, options: CollisionOptions = {},
 ): boolean => {
   if (!isInsideMap(area) || !isInsideMap({ ...area, position: to })) return false
-  for (const obstacle of getObstacles(world, options)) {
-    if (!isValidFootprint(obstacle) || segmentIntersectsObstacle(area.position, to, area, obstacle)) return false
+  const scratch: Footprint = { position: { x: 0, y: 0 }, halfWidth: 0, halfHeight: 0 }
+  if (!objectsSweepFree(world.objects, area.position, to, area, scratch, options.ignoreId)) return false
+  for (const unit of world.units) {
+    if (unit.id === options.ignoreId) continue
+    const type = UNIT_TYPES[unit.type]
+    if (!unit.position || !type || !Number.isFinite(type.width) || !(type.width > 0)) return false
+    scratch.position = unit.position
+    scratch.halfWidth = type.width / 2
+    scratch.halfHeight = type.width / 2
+    if (segmentIntersectsObstacle(area.position, to, area, scratch)) return false
   }
-  return true
+  return sweepFootprintsFree(options.reserved ?? [], area.position, to, area)
 }
 
 export const clampFootprintToMap = (area: Footprint): Point => ({
