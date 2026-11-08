@@ -90,6 +90,10 @@ export default {
         // задание производства здания по его id, null - здание ничего не создаёт
         getProductionByBuilding: (state) => (buildingId) =>
             state.production.find((job) => job.buildingId === buildingId) ?? null,
+        // сколько живых юнитов типа unitType сейчас у группы (мёртвых в сторе не бывает - removeDead убирает каждый кадр);
+        // для лимита создания: UNIT_TYPES[unitType].maxPerGroup
+        countUnitsOfType: (state) => (group, unitType) =>
+            state.units.filter((u) => u.group === group && u.type === unitType).length,
     },
     mutations: {
         // расстановка и местность сценария
@@ -183,7 +187,7 @@ export default {
         // Спавн: выбранное здание начинает создавать юнита типа unitType.
         // Юнит появится рядом со зданием через UNIT_TYPES[unitType].buildSeconds секунд -
         // до этого на здании и кнопке растёт полоса прогресса (updateProduction)
-        spawnUnit: ({state, commit, rootGetters}, unitType) => {
+        spawnUnit: ({state, commit, getters, rootGetters}, unitType) => {
             const building = rootGetters['selection/getSelected']
             if (!building || !Object.hasOwn(OBJECT_TYPES, building.type) || !Object.hasOwn(UNIT_TYPES, unitType)) {
                 return false
@@ -191,6 +195,10 @@ export default {
             const spawns = OBJECT_TYPES[building.type].spawns ?? []
             // одно задание на здание: пока идёт производство, новое не начнём
             if (!spawns.includes(unitType) || state.production.some((job) => job.buildingId === building.id)) {
+                return false
+            }
+            // лимит юнитов этого типа у группы здания достигнут
+            if (getters.countUnitsOfType(building.group, unitType) >= UNIT_TYPES[unitType].maxPerGroup) {
                 return false
             }
             commit(MUTATIONS.START_PRODUCTION, {
@@ -203,8 +211,9 @@ export default {
         },
         // Производство (каждый кадр из engine/tick): время заданий идёт вперёд,
         // готовые создают юнита на ближайшем свободном месте у здания.
-        // Здание погибло - задание пропадает; место занято - ждём и пробуем в следующем кадре
-        updateProduction: ({state, commit, dispatch, rootState, rootGetters}, secondsPassed) => {
+        // Здание погибло - задание пропадает; место занято или лимит группы достигнут -
+        // ждём и пробуем в следующем кадре
+        updateProduction: ({state, commit, dispatch, getters, rootState, rootGetters}, secondsPassed) => {
             if (!isActive(rootState, rootGetters)) {
                 return
             }
@@ -213,8 +222,16 @@ export default {
                 .filter((job) => job.elapsed >= job.duration)
                 .forEach((job) => {
                     const building = state.objects.find((o) => o.id === job.buildingId)
-                    const unit = building && makeSpawnedUnit(state, building, job.unitType)
-                    if (!building || (unit && dispatch('addObject', {kind: 'unit', object: unit}))) {
+                    if (!building) {
+                        commit(MUTATIONS.REMOVE_PRODUCTION, job.buildingId)
+                        return
+                    }
+                    // лимит могли занять, пока шло производство (другое здание той же группы)
+                    if (getters.countUnitsOfType(building.group, job.unitType) >= UNIT_TYPES[job.unitType].maxPerGroup) {
+                        return
+                    }
+                    const unit = makeSpawnedUnit(state, building, job.unitType)
+                    if (unit && dispatch('addObject', {kind: 'unit', object: unit})) {
                         commit(MUTATIONS.REMOVE_PRODUCTION, job.buildingId)
                     }
                 })

@@ -9,7 +9,7 @@
         :key="command.id"
         class="command-panel__button"
         :class="{ 'command-panel__button--spawn': command.action === 'world/spawnUnit' }"
-        :disabled="isProducing && command.action === 'world/spawnUnit'"
+        :disabled="command.action === 'world/spawnUnit' && (isProducing || isAtLimit(command.payload))"
         @mousedown.prevent
         @click="() => run(command)">
       <span
@@ -51,12 +51,28 @@ const progressPercent = computed(() => {
   return Math.floor(Math.min(1, job.elapsed / job.duration) * 100)
 })
 
-// подпись кнопки спавна: во время производства добавляем проценты готовности
+// сколько юнитов этого типа уже живо у группы выбранного здания: у каждой группы свой лимит
+const unitCount = (unitType?: string) => {
+  const building = selected.value
+  if (!building || unitType === undefined) {
+    return 0
+  }
+  return store.getters['world/countUnitsOfType'](building.group, unitType)
+}
+
+// лимит юнитов этого типа у группы достигнут: кнопку спавна блокируем
+const isAtLimit = (unitType?: string) =>
+    unitType !== undefined && unitCount(unitType) >= UNIT_TYPES[unitType].maxPerGroup
+
+// подпись кнопки спавна: счётчик по лимиту, а во время производства - проценты готовности
 const buttonLabel = (command: Command) => {
-  if (command.action !== 'world/spawnUnit' || !production.value || production.value.unitType !== command.payload) {
+  if (command.action !== 'world/spawnUnit' || command.payload === undefined) {
     return command.label
   }
-  return `${command.label} (${progressPercent.value}%)`
+  if (production.value && production.value.unitType === command.payload) {
+    return `${command.label} (${progressPercent.value}%)`
+  }
+  return `${command.label} (${unitCount(command.payload)}/${UNIT_TYPES[command.payload].maxPerGroup})`
 }
 
 // кнопки спавна выбранного здания: по одной на каждый тип юнита из spawns
