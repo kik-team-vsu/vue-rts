@@ -49,6 +49,8 @@ export const OBJECT_TYPES: Record<string, ObjectType | BuildingType> = {
   house: { name: 'Дом', width: cells(2), height: cells(2), color: '#a16207', wallHeight: 50, roofHeight: 40, roofColor: '#b91c1c', size: 2, maxHp: 200 },
   tree: { name: 'Дерево', width: 10, height: 10, color: '#7c4a1e', wallHeight: 80, branchColor: '#16a34a' },
   castle: { name: 'Замок', width: cells(4), height: cells(4), color: '#6b7280', wallHeight: 110, roofHeight: 18, roofType: 'battlements', size: 4, maxHp: 500 },
+  tower: { name: 'Башня', width: cells(1), height: cells(1), color: '#78716c', wallHeight: 90, roofHeight: 30, roofColor: '#44403c', size: 1, maxHp: 120 },
+  barracks: { name: 'Казарма', width: cells(3), height: cells(3), color: '#92400e', wallHeight: 45, roofHeight: 30, roofColor: '#166534', size: 3, maxHp: 350 },
 }
 
 export const UNIT_TYPES: Record<string, UnitType> = {
@@ -81,6 +83,11 @@ export const START_OBJECTS: StaticObject[] = [
   { id: 5, type: 'tree', group: 0, position: { x: 550, y: -150 } },
   { id: 6, type: 'castle', group: 1, hp: 500, position: { x: -900, y: -200 } },
   { id: 7, type: 'castle', group: 2, hp: 500, position: { x: 600, y: 300 } },
+  { id: 18, type: 'tower', group: 1, hp: 120, position: { x: -675, y: 325 } },
+  { id: 19, type: 'barracks', group: 2, hp: 350, position: { x: 325, y: 875 } },
+  { id: 20, type: 'barracks', group: 3, hp: 350, position: { x: 625, y: -1125 } },
+  { id: 21, type: 'tower', group: 3, hp: 120, position: { x: 875, y: -975 } },
+  { id: 22, type: 'house', group: 3, hp: 200, position: { x: 900, y: -1250 } },
 ]
 
 const START_UNITS: Unit[] = [
@@ -94,6 +101,9 @@ const START_UNITS: Unit[] = [
   { id: 15, type: 'boat', group: 1, hp: UNIT_TYPES.boat.maxHp, position: { x: -350, y: 700 }, target: null },
   { id: 16, type: 'warship', group: 2, hp: UNIT_TYPES.warship.maxHp, position: { x: 900, y: -600 }, target: null },
   { id: 17, type: 'warship', group: 1, hp: UNIT_TYPES.warship.maxHp, position: { x: -200, y: 700 }, target: null },
+  { id: 23, type: 'worker', group: 3, hp: UNIT_TYPES.worker.maxHp, position: { x: 500, y: -950 }, target: null },
+  { id: 24, type: 'warrior', group: 3, hp: UNIT_TYPES.warrior.maxHp, position: { x: 750, y: -950 }, target: null },
+  { id: 25, type: 'warrior', group: 3, hp: UNIT_TYPES.warrior.maxHp, position: { x: 700, y: -1300 }, target: null },
 ]
 export default START_UNITS
 
