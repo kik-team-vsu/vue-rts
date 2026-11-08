@@ -17,6 +17,9 @@ const MUTATIONS = {
     APPLY_DAMAGE: 'APPLY_DAMAGE',
     STOP_UNIT: 'STOP_UNIT',
     STOP_ATTACK: 'STOP_ATTACK',
+    START_PRODUCTION: 'START_PRODUCTION',
+    TICK_PRODUCTION: 'TICK_PRODUCTION',
+    REMOVE_PRODUCTION: 'REMOVE_PRODUCTION',
 }
 
 // новая постройка ставится только на сушу, новый юнит - только на свою местность
@@ -43,6 +46,26 @@ const canAddObject = (state, {kind, object}) => {
 // можно ли сейчас менять мир: сценарий идёт и не на паузе
 const isActive = (rootState, rootGetters) => rootGetters['game/isRunning'] && !rootState.game.paused
 
+// Юнит, готовый появиться из здания: объект юнита и ближайшая свободная позиция рядом.
+// null - если свободного места нет, спавн повторится в следующем кадре
+const makeSpawnedUnit = (state, building, unitType) => {
+    const unitStats = UNIT_TYPES[unitType]
+    const unit = {
+        // ID общий для юнитов и зданий: берём следующий после самого большого
+        id: Math.max(0, ...[...state.objects, ...state.units].map((o) => o.id)) + 1,
+        type: unitType,
+        group: building.group,
+        hp: unitStats.maxHp,
+        position: building.position,
+        target: null,
+    }
+    // ищем от центра здания: первое свободное место окажется вплотную к нему
+    const position = findNearestFreePosition(state, unitFootprint(unit), {
+        accept: (point) => fitsTerrain(state, 'unit', unit, unitFootprint({...unit, position: point})),
+    })
+    return position ? {...unit, position} : null
+}
+
 export default {
     namespaced: true,
     state() {
@@ -51,6 +74,8 @@ export default {
             units: structuredClone(START_UNITS),
             // до старта в меню показываем карту первого сценария - базового
             terrainZones: structuredClone(SCENARIOS[0].terrain),
+            // задания производства юнитов в зданиях (ProductionJob): у здания не бывает двух сразу
+            production: [],
         }
     },
     getters: {
@@ -62,6 +87,9 @@ export default {
         getById: (state) => (id) => state.objects.find((o) => o.id === id) ?? state.units.find((u) => u.id === id) ?? null,
         // группы, у которых остались юниты или здания; группа 0 не считается
         getAliveGroups: (state, getters) => [...new Set(getters.getAll.map((o) => o.group).filter((group) => group > 0))],
+        // задание производства здания по его id, null - здание ничего не создаёт
+        getProductionByBuilding: (state) => (buildingId) =>
+            state.production.find((job) => job.buildingId === buildingId) ?? null,
     },
     mutations: {
         // расстановка и местность сценария
@@ -69,6 +97,7 @@ export default {
             state.objects = structuredClone(scenario.objects)
             state.units = structuredClone(scenario.units)
             state.terrainZones = structuredClone(scenario.terrain)
+            state.production = []
         },
         // Повторная проверка при добавлении: после превью место мог занять юнит
         [MUTATIONS.ADD_OBJECT]: (state, payload) => {
@@ -124,6 +153,21 @@ export default {
                 unit.targetId = null
             }
         },
+        // Здание начинает создавать юнита; одно задание на здание
+        [MUTATIONS.START_PRODUCTION]: (state, job) => {
+            if (state.production.some((item) => item.buildingId === job.buildingId)) return
+            state.production.push({...job})
+        },
+        // Время производства идёт вперёд (вызывается только когда мир активен)
+        [MUTATIONS.TICK_PRODUCTION]: (state, secondsPassed) => {
+            state.production.forEach((job) => {
+                job.elapsed += secondsPassed
+            })
+        },
+        // Задание снято: юнит создан или здание исчезло
+        [MUTATIONS.REMOVE_PRODUCTION]: (state, buildingId) => {
+            state.production = state.production.filter((job) => job.buildingId !== buildingId)
+        },
     },
     actions: {
         // расставить объекты и местность сценария
@@ -136,38 +180,49 @@ export default {
             commit(MUTATIONS.ADD_OBJECT, payload)
             return true
         },
-        // Спавн: выбранное здание создаёт юнита типа unitType на ближайшем свободном месте рядом с собой.
-        spawnUnit: ({state, dispatch, rootGetters}, unitType) => {
+        // Спавн: выбранное здание начинает создавать юнита типа unitType.
+        // Юнит появится рядом со зданием через UNIT_TYPES[unitType].buildSeconds секунд -
+        // до этого на здании и кнопке растёт полоса прогресса (updateProduction)
+        spawnUnit: ({state, commit, rootGetters}, unitType) => {
             const building = rootGetters['selection/getSelected']
             if (!building || !Object.hasOwn(OBJECT_TYPES, building.type) || !Object.hasOwn(UNIT_TYPES, unitType)) {
                 return false
             }
             const spawns = OBJECT_TYPES[building.type].spawns ?? []
-            if (!spawns.includes(unitType)) {
+            // одно задание на здание: пока идёт производство, новое не начнём
+            if (!spawns.includes(unitType) || state.production.some((job) => job.buildingId === building.id)) {
                 return false
             }
-            const unitStats = UNIT_TYPES[unitType]
-            const unit = {
-                // ID общий для юнитов и зданий: берём следующий после самого большого
-                id: Math.max(0, ...[...state.objects, ...state.units].map((o) => o.id)) + 1,
-                type: unitType,
-                group: building.group,
-                hp: unitStats.maxHp,
-                position: building.position,
-                target: null,
-            }
-            // ищем от центра здания: первое свободное место окажется вплотную к нему
-            const position = findNearestFreePosition(state, unitFootprint(unit), {
-                accept: (point) => fitsTerrain(state, 'unit', unit, unitFootprint({...unit, position: point})),
+            commit(MUTATIONS.START_PRODUCTION, {
+                buildingId: building.id,
+                unitType,
+                elapsed: 0,
+                duration: UNIT_TYPES[unitType].buildSeconds,
             })
-            if (!position) {
-                return false
-            }
-            return dispatch('addObject', {kind: 'unit', object: {...unit, position}})
+            return true
         },
-        // Уничтожить объект по id: он пропадает с карты, из выбора и вместе со своими событиями
+        // Производство (каждый кадр из engine/tick): время заданий идёт вперёд,
+        // готовые создают юнита на ближайшем свободном месте у здания.
+        // Здание погибло - задание пропадает; место занято - ждём и пробуем в следующем кадре
+        updateProduction: ({state, commit, dispatch, rootState, rootGetters}, secondsPassed) => {
+            if (!isActive(rootState, rootGetters)) {
+                return
+            }
+            commit(MUTATIONS.TICK_PRODUCTION, secondsPassed)
+            state.production
+                .filter((job) => job.elapsed >= job.duration)
+                .forEach((job) => {
+                    const building = state.objects.find((o) => o.id === job.buildingId)
+                    const unit = building && makeSpawnedUnit(state, building, job.unitType)
+                    if (!building || (unit && dispatch('addObject', {kind: 'unit', object: unit}))) {
+                        commit(MUTATIONS.REMOVE_PRODUCTION, job.buildingId)
+                    }
+                })
+        },
+        // Уничтожить объект по id: он пропадает с карты, из выбора, вместе со своими событиями и производством
         destroyObject: ({commit, dispatch}, id) => {
             commit(MUTATIONS.REMOVE_OBJECT, id)
+            commit(MUTATIONS.REMOVE_PRODUCTION, id)
             dispatch('selection/deselect', id, {root: true})
             dispatch('events/cancelActor', id, {root: true})
         },
