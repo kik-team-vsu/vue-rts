@@ -260,7 +260,6 @@ export default {
           continue
         }
         // Цель жива, но отошла от точки приказа дальше дальности атаки - догоняем по текущей позиции.
-        // Здание на месте не отходит, его приказ не переносится
         const goal = event.target
         if (!goal || Math.hypot(target.position.x - goal.x, target.position.y - goal.y) > ATTACK_RANGE) {
           commit(MUTATIONS.SET_EVENT_TARGET, { id: event.id, target: { ...target.position } })

@@ -17,8 +17,7 @@ export const attackRange = (unit: Unit, target: Unit): number => {
 export const isAttackableBuilding = (object: StaticObject): boolean =>
   Object.hasOwn(OBJECT_TYPES, object.type) && object.hp !== undefined
 
-// Расстояние от центра юнита до стен здания. До центра мерить нельзя:
-// у замка 4×4 клетки центр дальше от стен, чем запас дальности атаки, и бой у стен не начался бы
+// Расстояние от центра юнита до стен здания
 export const distanceToBuilding = (unit: Unit, building: StaticObject): number => {
   const type = OBJECT_TYPES[building.type]
   const dx = Math.max(Math.abs(unit.position.x - building.position.x) - type.width / 2, 0)
