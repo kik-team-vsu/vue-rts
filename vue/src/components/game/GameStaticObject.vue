@@ -1,7 +1,7 @@
 <template>
   <div
       class="game-static-object"
-      :class="{ selected }"
+      :class="{ selected, constructing: construction !== null }"
       :style="style"
       @mousedown.left.stop="() => pushEmit()">
     <!-- здание или дерево: две ближние к камере стены и верх, затем крыша или ветки, если они есть у типа -->
@@ -139,6 +139,16 @@ const faces = computed(() => {
   width: 0;
   height: 0;
   cursor: pointer;
+}
+
+// недостроенное здание полупрозрачно, как превью при выборе места;
+// полоски жизней и стройки при этом остаются яркими
+.constructing {
+  :deep(.face),
+  :deep(.slope),
+  :deep(.edge) {
+    opacity: 0.45;
+  }
 }
 
 // та же изометрия для ромбовидности
