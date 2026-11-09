@@ -67,17 +67,22 @@ export default {
       if (!placement?.valid) return false
       const typeId = state.typeId
       const type = getBuildingType(typeId)
+      const objectId = rootState.world.nextObjectId
       const added = await dispatch('world/addObject', {
         kind: 'static',
         object: {
-          id: rootState.world.nextObjectId,
+          id: objectId,
           type: typeId,
           group: state.group,
           hp: type.maxHp,
           position: placement.position,
         },
       }, { root: true })
-      if (added && state.typeId === typeId) commit('SET_TYPE', null)
+      if (added) {
+        // Здание стоит на карте, но строится ещё buildSeconds секунд (world/updateConstruction)
+        dispatch('world/startConstruction', objectId, { root: true })
+        if (state.typeId === typeId) commit('SET_TYPE', null)
+      }
       return added
     },
   },

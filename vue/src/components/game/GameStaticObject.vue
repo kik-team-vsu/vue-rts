@@ -16,6 +16,12 @@
         :progress="production.elapsed / production.duration"
         :offset="hpBarOffset"
         :width="hpBarWidth" />
+    <!-- стройка и производство не бывают одновременно: спавн заблокирован, пока здание строится -->
+    <ProductionBar
+        v-if="construction"
+        :progress="construction.elapsed / construction.duration"
+        :offset="hpBarOffset"
+        :width="hpBarWidth" />
     <HpBar
         v-if="object.hp !== undefined && maxHp !== null"
         :hp="object.hp"
@@ -52,6 +58,9 @@ const deckClass = computed(() => (props.type.image ? `deck--${props.object.type}
 
 // что здание создаёт сейчас (null - ничего): полоска производства над полоской жизней
 const production = computed<ProductionJob | null>(() => store.getters['world/getProductionByBuilding'](props.object.id))
+
+// строится ли здание сейчас (null - построено): полоска стройки на месте полоски производства
+const construction = computed(() => store.getters['world/getConstructionByObject'](props.object.id))
 
 // событие для родителя (GameField): если на объект кликнули, его надо выбрать
 const emit = defineEmits<{ select: [] }>()

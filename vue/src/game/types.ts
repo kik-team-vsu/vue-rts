@@ -38,6 +38,7 @@ export interface BuildingType extends ObjectType {
   maxHp: number
   spawns?: string[]
   maxPerGroup: number // максимум живых зданий этого типа у одной группы: строительство запрещается
+  buildSeconds: number // сколько секунд здание строится после установки
 }
 
 export interface UnitType extends ObjectType {
@@ -57,6 +58,14 @@ export interface UnitType extends ObjectType {
 export interface ProductionJob {
   buildingId: number
   unitType: string
+  elapsed: number
+  duration: number
+}
+
+// Задание строительства: здание objectId строится, прошло elapsed из duration секунд
+// (стор world/updateConstruction снимает задание, когда время выйдет; здание погибло - снято в destroyObject)
+export interface ConstructionJob {
+  objectId: number
   elapsed: number
   duration: number
 }

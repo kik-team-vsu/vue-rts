@@ -64,6 +64,8 @@ export default {
           dispatch('world/removeDead', null, { root: true })
           // производство юнитов в зданиях - после removeDead, чтобы погибшее здание не успело создать юнита
           dispatch('world/updateProduction', secondsPassed, { root: true })
+          // строительство зданий: время заданий идёт, готовые снимаются
+          dispatch('world/updateConstruction', secondsPassed, { root: true })
     },
   },
 }

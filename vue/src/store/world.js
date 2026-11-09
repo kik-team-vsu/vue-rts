@@ -1,7 +1,7 @@
 import START_UNITS, {OBJECT_TYPES, START_OBJECTS, UNIT_TYPES} from '@/game/config'
 import {SCENARIOS} from '@/game/scenarios'
 import {advanceUnits, orderUnit} from '@/game/movement'
-import {getBuildingError} from '@/game/building'
+import {getBuildingError, getBuildingType} from '@/game/building'
 import {bridgesOf, isFootprintTerrainPassable} from '@/game/terrain'
 import {findNearestFreePosition, isAreaFree, staticFootprint, unitFootprint} from '@/game/spatial'
 
@@ -20,6 +20,9 @@ const MUTATIONS = {
     START_PRODUCTION: 'START_PRODUCTION',
     TICK_PRODUCTION: 'TICK_PRODUCTION',
     REMOVE_PRODUCTION: 'REMOVE_PRODUCTION',
+    START_CONSTRUCTION: 'START_CONSTRUCTION',
+    TICK_CONSTRUCTION: 'TICK_CONSTRUCTION',
+    REMOVE_CONSTRUCTION: 'REMOVE_CONSTRUCTION',
 }
 
 // Новый юнит появляется на своей местности, в том числе на проходимом настиле моста
@@ -82,6 +85,8 @@ export default {
             terrainZones: structuredClone(SCENARIOS[0].terrain),
             // Задания производства юнитов в зданиях (ProductionJob): у здания не бывает двух сразу
             production: [],
+            // Задания строительства зданий (ConstructionJob): время идёт, готовое здание считается построенным
+            constructions: [],
         }
     },
     getters: {
@@ -96,6 +101,9 @@ export default {
         // Задание производства здания по его id, null - здание ничего не создаёт
         getProductionByBuilding: (state) => (buildingId) =>
             state.production.find((job) => job.buildingId === buildingId) ?? null,
+        // Задание строительства по id объекта, null - объект построен (или не здание)
+        getConstructionByObject: (state) => (objectId) =>
+            state.constructions.find((job) => job.objectId === objectId) ?? null,
         // Сколько живых юнитов типа unitType сейчас у группы (мёртвых в сторе не бывает - removeDead убирает каждый кадр);
         // Для лимита создания: UNIT_TYPES[unitType].maxPerGroup
         countUnitsOfType: (state) => (group, unitType) =>
@@ -113,6 +121,7 @@ export default {
             state.nextObjectId = nextId(scenario.objects, scenario.units)
             state.terrainZones = structuredClone(scenario.terrain)
             state.production = []
+            state.constructions = []
         },
         // Повторная проверка при добавлении: после превью место мог занять юнит
         [MUTATIONS.ADD_OBJECT]: (state, payload) => {
@@ -184,6 +193,21 @@ export default {
         [MUTATIONS.REMOVE_PRODUCTION]: (state, buildingId) => {
             state.production = state.production.filter((job) => job.buildingId !== buildingId)
         },
+        // Здание начало строиться; одно задание на здание
+        [MUTATIONS.START_CONSTRUCTION]: (state, job) => {
+            if (state.constructions.some((item) => item.objectId === job.objectId)) return
+            state.constructions.push({...job})
+        },
+        // Время строительства идёт вперёд (вызывается только когда мир активен)
+        [MUTATIONS.TICK_CONSTRUCTION]: (state, secondsPassed) => {
+            state.constructions.forEach((job) => {
+                job.elapsed += secondsPassed
+            })
+        },
+        // Задание снято: здание построено или исчезло
+        [MUTATIONS.REMOVE_CONSTRUCTION]: (state, objectId) => {
+            state.constructions = state.constructions.filter((job) => job.objectId !== objectId)
+        },
     },
     actions: {
         // Расставить объекты и местность сценария
@@ -207,6 +231,10 @@ export default {
             const spawns = OBJECT_TYPES[building.type].spawns ?? []
             // Одно задание на здание: пока идёт производство, новое не начнём
             if (!spawns.includes(unitType) || state.production.some((job) => job.buildingId === building.id)) {
+                return false
+            }
+            // Недостроенное здание пока не создаёт юнитов
+            if (getters.getConstructionByObject(building.id)) {
                 return false
             }
             // Лимит юнитов этого типа у группы здания достигнут
@@ -248,13 +276,42 @@ export default {
                     }
                 })
         },
-        // Уничтожить объект по id: он пропадает с карты, из выбора, вместе со своими событиями и производством
+        // Уничтожить объект по id: он пропадает с карты, из выбора, вместе со своими событиями, производством и стройкой
         destroyObject: ({commit, dispatch, rootGetters}, id) => {
             commit(MUTATIONS.REMOVE_OBJECT, id)
             commit(MUTATIONS.REMOVE_PRODUCTION, id)
+            commit(MUTATIONS.REMOVE_CONSTRUCTION, id)
             dispatch('selection/deselect', id, {root: true})
             dispatch('events/cancelActor', id, {root: true})
             if (!rootGetters['game/isRunning']) dispatch('construction/cancel', null, {root: true})
+        },
+        // Строительство: здание появляется на карте сразу и строится buildSeconds секунд.
+        // Задание запускает construction/place после установки здания
+        startConstruction: ({state, commit}, objectId) => {
+            const object = state.objects.find((o) => o.id === objectId)
+            const type = object ? getBuildingType(object.type) : null
+            if (object && type) {
+                commit(MUTATIONS.START_CONSTRUCTION, {
+                    objectId,
+                    elapsed: 0,
+                    duration: type.buildSeconds,
+                })
+            }
+        },
+        // Строительство (каждый кадр из engine/tick): время заданий идёт вперёд,
+        // Вышло время - задание снимается, здание построено.
+        // Здание погибло - задание уже снято в destroyObject, но подстрахуемся
+        updateConstruction: ({state, commit, rootState, rootGetters}, secondsPassed) => {
+            if (!isActive(rootState, rootGetters)) {
+                return
+            }
+            commit(MUTATIONS.TICK_CONSTRUCTION, secondsPassed)
+            state.constructions
+                .filter((job) => {
+                    const building = state.objects.find((o) => o.id === job.objectId)
+                    return !building || job.elapsed >= job.duration
+                })
+                .forEach((job) => commit(MUTATIONS.REMOVE_CONSTRUCTION, job.objectId))
         },
         // Самоуничтожение выбранных юнитов
         destroySelectedUnits: ({dispatch, rootGetters}) => {

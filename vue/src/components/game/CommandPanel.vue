@@ -40,7 +40,7 @@
         :key="command.id"
         class="command-panel__button"
         :class="{ 'command-panel__button--spawn': command.action === 'world/spawnUnit' }"
-        :disabled="command.action === 'world/spawnUnit' && (isProducing || isAtLimit(command.payload))"
+        :disabled="command.action === 'world/spawnUnit' && (isProducing || isConstructing || isAtLimit(command.payload))"
         @mousedown.prevent
         @click="() => run(command)">
       <span
@@ -96,6 +96,12 @@ const production = computed<ProductionJob | null>(() => {
   return store.getters['world/getProductionByBuilding'](building.id)
 })
 const isProducing = computed(() => production.value !== null)
+
+// Недостроенное здание пока не создаёт юнитов: кнопки спавна заблокированы до конца стройки
+const isConstructing = computed(() => {
+  const building = selected.value
+  return building !== null && store.getters['world/getConstructionByObject'](building.id) !== null
+})
 const progressPercent = computed(() => {
   const job = production.value
   if (!job) {
