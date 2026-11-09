@@ -17,7 +17,7 @@ export default {
       started: false, // false - показываем меню
       paused: false,
       scenarioTime: 0,
-      // события сценария по времени, которые ещё не наступили
+      // События сценария по времени, которые ещё не наступили
       pendingEvents: [],
       scenarioId: SCENARIOS[0].id,
     }
@@ -49,7 +49,7 @@ export default {
       state.started = false
       state.paused = false
     },
-    // время сценария идёт вперёд, наступившие события убираются из очереди сценария
+    // Время сценария идёт вперёд, наступившие события убираются из очереди сценария
     [MUTATIONS.ADVANCE_SCENARIO]: (state, secondsPassed) => {
       state.scenarioTime += secondsPassed
       state.pendingEvents = state.pendingEvents.filter((e) => e.at > state.scenarioTime)
@@ -57,8 +57,9 @@ export default {
   },
   actions: {
     // Пауза: нажали - стоим, ещё раз - продолжаем
-    togglePause: ({ state, commit }) => {
+    togglePause: ({ state, commit, dispatch }) => {
       commit(MUTATIONS.SET_PAUSED, !state.paused)
+      if (state.paused) dispatch('construction/cancel', null, { root: true })
     },
     // Запустить сценарий по id
     loadScenario: ({ commit, dispatch }, id) => {
@@ -67,6 +68,7 @@ export default {
         dispatch('world/load', scenario, { root: true })
         dispatch('selection/clear', null, { root: true })
         dispatch('events/clear', null, { root: true })
+        dispatch('construction/cancel', null, { root: true })
         commit(MUTATIONS.START_SCENARIO, scenario)
       }
     },
@@ -74,6 +76,7 @@ export default {
       commit(MUTATIONS.OPEN_MENU)
       dispatch('selection/clear', null, { root: true })
       dispatch('events/clear', null, { root: true })
+      dispatch('construction/cancel', null, { root: true })
     },
     // События сценария (на паузе и в меню не идут): наступившие становятся событиями move в сторе events
     runScenarioEvents: ({ state, commit, dispatch, getters }, secondsPassed) => {

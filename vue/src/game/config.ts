@@ -52,12 +52,12 @@ export const CAMERA = { speedPxPerSecond: 500, edgePx: 80 }
 const cells = (count: number) => count * MAP.cell
 
 export const OBJECT_TYPES: Record<string, ObjectType | BuildingType> = {
-  house: { name: 'Дом', width: cells(2), height: cells(2), color: '#a16207', wallHeight: 50, roofHeight: 40, roofColor: '#b91c1c', size: 2, maxHp: 200, spawns: ['worker'] },
+  house: { name: 'Дом', width: cells(2), height: cells(2), color: '#a16207', wallHeight: 50, roofHeight: 40, roofColor: '#b91c1c', size: 2, maxHp: 200, spawns: ['worker'], maxPerGroup: 3, buildSeconds: 6 },
   tree: { name: 'Дерево', width: 10, height: 10, color: '#7c4a1e', wallHeight: 80, branchColor: '#16a34a' },
-  castle: { name: 'Замок', width: cells(4), height: cells(4), color: '#6b7280', wallHeight: 110, roofHeight: 18, roofType: 'battlements', size: 4, maxHp: 500, spawns: ['worker', 'warrior'] },
-  tower: { name: 'Башня', width: cells(1), height: cells(1), color: '#78716c', wallHeight: 90, roofHeight: 30, roofColor: '#44403c', size: 1, maxHp: 120 },
-  barracks: { name: 'Казарма', width: cells(3), height: cells(3), color: '#92400e', wallHeight: 45, roofHeight: 30, roofColor: '#166534', size: 3, maxHp: 350, spawns: ['warrior'] },
-  dock: { name: 'Пристань', width: cells(2), height: cells(2), color: '#a8a29e', wallHeight: 30, roofHeight: 25, roofColor: '#0369a1', size: 2, maxHp: 150, spawns: ['boat', 'warship'] },
+  castle: { name: 'Замок', width: cells(4), height: cells(4), color: '#6b7280', wallHeight: 110, roofHeight: 18, roofType: 'battlements', size: 4, maxHp: 500, spawns: ['worker', 'warrior'], maxPerGroup: 1, buildSeconds: 12 },
+  tower: { name: 'Башня', width: cells(1), height: cells(1), color: '#78716c', wallHeight: 90, roofHeight: 30, roofColor: '#44403c', size: 1, maxHp: 120, maxPerGroup: 3, buildSeconds: 4 },
+  barracks: { name: 'Казарма', width: cells(3), height: cells(3), color: '#92400e', wallHeight: 45, roofHeight: 30, roofColor: '#166534', size: 3, maxHp: 350, spawns: ['warrior'], maxPerGroup: 2, buildSeconds: 9 },
+  dock: { name: 'Пристань', width: cells(2), height: cells(2), color: '#a8a29e', wallHeight: 30, roofHeight: 25, roofColor: '#0369a1', size: 2, maxHp: 150, spawns: ['boat', 'warship'], maxPerGroup: 2, buildSeconds: 6 },
   bridge: { name: 'Мост', width: cells(7), height: cells(2), color: '#92400e', image: 'bridge.svg', passable: true },
   'bridge-vertical': { name: 'Мост', width: cells(2), height: cells(7), color: '#92400e', image: 'bridge-vertical.svg', passable: true },
 }
@@ -69,8 +69,8 @@ export const UNIT_TYPES: Record<string, UnitType> = {
   warship: { name: 'Военный корабль', width: 132, height: 72, color: '#8b9199', speedPxPerSecond: 110, maxHp: 250, strength: 30, attackSpeed: 1, buildSeconds: 8, maxPerGroup: 3, terrain: 'water', shape: 'warship' },
 }
 
-// цвета групп
-const GROUP_PALETTE = ['#2563eb', '#dc2626', '#9333ea', '#ea580c', '#0891b2', '#db2777']
+// цвета групп (группа N получает цвет GROUP_PALETTE[N - 1])
+export const GROUP_PALETTE = ['#2563eb', '#dc2626', '#9333ea', '#ea580c', '#0891b2', '#db2777']
 
 // цвет группы; у нейтральных (группа 0) цвета нет, берём чёрный
 export const groupColor = (group: number) => {
