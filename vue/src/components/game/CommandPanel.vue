@@ -5,6 +5,19 @@
       @mousedown.stop
       @contextmenu.prevent="cancelBuilding">
     <div class="command-panel__title">Строительство</div>
+    <div class="command-panel__groups">
+      <button
+          v-for="group in groups"
+          :key="group"
+          class="command-panel__group"
+          :aria-pressed="selectedGroup === group"
+          :style="{ backgroundColor: groupColor(group) }"
+          :title="groupTitle(group)"
+          @mousedown.prevent
+          @click="chooseGroup(group)">
+        {{ group }}
+      </button>
+    </div>
     <div class="command-panel__buildings">
       <button
           v-for="building in buildings"
@@ -41,7 +54,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useStore } from 'vuex'
-import { COMMANDS, OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
+import { COMMANDS, GROUP_PALETTE, OBJECT_TYPES, UNIT_TYPES, PLAYER_GROUP, groupColor } from '@/game/config'
 import { getBuildingType } from '@/game/building'
 import type { Command, ProductionJob, StaticObject, Unit } from '@/game/types'
 
@@ -55,6 +68,12 @@ const buildings = Object.keys(OBJECT_TYPES).flatMap((id) => {
 })
 const startBuilding = (typeId: string) => store.dispatch('construction/start', typeId)
 const cancelBuilding = () => store.dispatch('construction/cancel')
+
+// Группа, от имени которой строятся здания: по кнопке на каждый цвет палитры
+const selectedGroup = computed<number>(() => store.getters['construction/getGroup'])
+const groups = GROUP_PALETTE.map((_, index) => index + 1)
+const chooseGroup = (group: number) => store.dispatch('construction/setGroup', group)
+const groupTitle = (group: number) => group === PLAYER_GROUP ? `Группа ${group} (игрок)` : `Группа ${group}`
 const selectedUnits = computed(() => store.getters['selection/getSelectedUnits'])
 const selected = computed<StaticObject | Unit | null>(() => store.getters['selection/getSelected'])
 
@@ -149,6 +168,28 @@ const run = (command: Command) => {
   &__title {
     color: $panel-text-color;
     font-weight: bold;
+  }
+
+  &__groups {
+    display: flex;
+    gap: 6px;
+  }
+
+  // Кнопка выбора группы: цвет группы из палитры, выбранная обведена кольцом
+  &__group {
+    width: 26px;
+    padding: 4px 0;
+    border: 0;
+    border-radius: $button-radius;
+    color: $panel-text-color;
+    font-weight: bold;
+    cursor: pointer;
+    opacity: 0.55;
+
+    &[aria-pressed='true'] {
+      opacity: 1;
+      box-shadow: inset 0 0 0 2px #fff;
+    }
   }
 
   &__buildings {

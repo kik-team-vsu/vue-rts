@@ -6,11 +6,14 @@ export default {
   namespaced: true,
   state: () => ({
     typeId: null,
+    // Группа, от имени которой строятся здания (выбирается в панели строительства)
+    group: PLAYER_GROUP,
     cursor: null,
     viewport: { width: 0, height: 0 },
   }),
   getters: {
     getTypeId: (state) => state.typeId,
+    getGroup: (state) => state.group,
     getType: (state) => state.typeId ? getBuildingType(state.typeId) : null,
     // Камера и мир могут измениться под неподвижным курсором
     getPlacement: (state, getters, rootState, rootGetters) => {
@@ -34,6 +37,9 @@ export default {
     SET_VIEWPORT: (state, size) => {
       state.viewport = { ...size }
     },
+    SET_GROUP: (state, group) => {
+      state.group = group
+    },
   },
   actions: {
     start: ({ commit, rootState, rootGetters }, typeId) => {
@@ -44,6 +50,11 @@ export default {
     cancel: ({ commit }) => commit('SET_TYPE', null),
     setCursor: ({ commit }, point) => commit('SET_CURSOR', point),
     setViewport: ({ commit }, size) => commit('SET_VIEWPORT', size),
+    // Выбор группы для строительства: только целые положительные номера
+    setGroup: ({ commit }, group) => {
+      if (!Number.isInteger(group) || group <= 0) return
+      commit('SET_GROUP', group)
+    },
     place: async ({ state, getters, commit, dispatch, rootState }) => {
       // Геттер проверяет актуальное место повторно, включая только что вошедшего юнита
       const placement = getters.getPlacement
@@ -55,7 +66,7 @@ export default {
         object: {
           id: rootState.world.nextObjectId,
           type: typeId,
-          group: PLAYER_GROUP,
+          group: state.group,
           hp: type.maxHp,
           position: placement.position,
         },

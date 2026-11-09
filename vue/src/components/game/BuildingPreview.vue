@@ -16,7 +16,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import GameStaticObject from './GameStaticObject.vue'
-import { MAP, PLAYER_GROUP } from '@/game/config'
+import { MAP } from '@/game/config'
 import { worldToScreen } from '@/game/coords'
 import type { BuildingPlacement } from '@/game/building'
 import type { BuildingType, StaticObject } from '@/game/types'
@@ -25,11 +25,12 @@ const props = defineProps<{
   typeId: string
   type: BuildingType
   placement: BuildingPlacement
+  group: number
 }>()
 
 // Модель рисуется относительно центра превью, её позиция локальная
 const object = computed<StaticObject>(() => ({
-  id: 0, type: props.typeId, group: PLAYER_GROUP, position: { x: 0, y: 0 },
+  id: 0, type: props.typeId, group: props.group, position: { x: 0, y: 0 },
 }))
 const style = computed(() => {
   const point = worldToScreen(props.placement.position)

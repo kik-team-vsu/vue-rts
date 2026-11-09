@@ -69,8 +69,8 @@ export const UNIT_TYPES: Record<string, UnitType> = {
   warship: { name: 'Военный корабль', width: 132, height: 72, color: '#8b9199', speedPxPerSecond: 110, maxHp: 250, strength: 30, attackSpeed: 1, buildSeconds: 8, maxPerGroup: 3, terrain: 'water', shape: 'warship' },
 }
 
-// цвета групп
-const GROUP_PALETTE = ['#2563eb', '#dc2626', '#9333ea', '#ea580c', '#0891b2', '#db2777']
+// цвета групп (группа N получает цвет GROUP_PALETTE[N - 1])
+export const GROUP_PALETTE = ['#2563eb', '#dc2626', '#9333ea', '#ea580c', '#0891b2', '#db2777']
 
 // цвет группы; у нейтральных (группа 0) цвета нет, берём чёрный
 export const groupColor = (group: number) => {

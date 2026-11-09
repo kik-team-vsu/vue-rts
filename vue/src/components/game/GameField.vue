@@ -71,7 +71,8 @@
           v-if="buildingType && buildingConfig && buildingPlacement"
           :type-id="buildingType"
           :type="buildingConfig"
-          :placement="buildingPlacement" />
+          :placement="buildingPlacement"
+          :group="buildingGroup" />
     </div>
 
     <div
@@ -125,6 +126,7 @@ const selectedUnits = computed<Unit[]>(() => store.getters['selection/getSelecte
 const buildingType = computed<string | null>(() => store.getters['construction/getTypeId'])
 const buildingConfig = computed<BuildingType | null>(() => store.getters['construction/getType'])
 const buildingPlacement = computed<BuildingPlacement | null>(() => store.getters['construction/getPlacement'])
+const buildingGroup = computed<number>(() => store.getters['construction/getGroup'])
 
 const paused = computed<boolean>(() => store.getters['game/getPaused'])
 const isRunning = computed<boolean>(() => store.getters['game/isRunning'])
