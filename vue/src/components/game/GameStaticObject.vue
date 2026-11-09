@@ -1,7 +1,7 @@
 <template>
   <div
       class="game-static-object"
-      :class="{ selected }"
+      :class="{ selected, constructing: construction !== null }"
       :style="style"
       @mousedown.left.stop="() => pushEmit()">
     <!-- здание или дерево: две ближние к камере стены и верх, затем крыша или ветки, если они есть у типа -->
@@ -14,6 +14,12 @@
     <ProductionBar
         v-if="production"
         :progress="production.elapsed / production.duration"
+        :offset="hpBarOffset"
+        :width="hpBarWidth" />
+    <!-- стройка и производство не бывают одновременно: спавн заблокирован, пока здание строится -->
+    <ProductionBar
+        v-if="construction"
+        :progress="construction.elapsed / construction.duration"
         :offset="hpBarOffset"
         :width="hpBarWidth" />
     <HpBar
@@ -52,6 +58,9 @@ const deckClass = computed(() => (props.type.image ? `deck--${props.object.type}
 
 // что здание создаёт сейчас (null - ничего): полоска производства над полоской жизней
 const production = computed<ProductionJob | null>(() => store.getters['world/getProductionByBuilding'](props.object.id))
+
+// строится ли здание сейчас (null - построено): полоска стройки на месте полоски производства
+const construction = computed(() => store.getters['world/getConstructionByObject'](props.object.id))
 
 // событие для родителя (GameField): если на объект кликнули, его надо выбрать
 const emit = defineEmits<{ select: [] }>()
@@ -130,6 +139,16 @@ const faces = computed(() => {
   width: 0;
   height: 0;
   cursor: pointer;
+}
+
+// недостроенное здание полупрозрачно, как превью при выборе места;
+// полоски жизней и стройки при этом остаются яркими
+.constructing {
+  :deep(.face),
+  :deep(.slope),
+  :deep(.edge) {
+    opacity: 0.45;
+  }
 }
 
 // та же изометрия для ромбовидности
