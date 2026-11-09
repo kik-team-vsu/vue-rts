@@ -93,7 +93,7 @@ export interface Unit extends GameObject {
   target: Point | null
   path?: Point[] | null // точки пути в обход препятствий, последняя совпадает с target
   blockedFor?: number // время ожидания до повторного поиска пути, секунды
-  targetId?: number | null // цель атаки (id юнита), null - обычное движение
+  targetId?: number | null // цель атаки (id юнита или здания), null - обычное движение
   isAttacking?: boolean // true, пока юнит в режиме атаки
   facing?: number // куда смотрит нос (лицо), радианы в мировых координатах: 0 - +x, PI/2 - +y
 }
@@ -110,7 +110,7 @@ export interface GameEvent {
   type: GameEventType
   actorId: number // кто выполняет: id юнита
   target: Point | null // точка назначения (move, attack - куда идти)
-  targetId: number | null // объект-цель (attack)
+  targetId: number | null // объект-цель атаки: юнит или здание
   status: GameEventStatus
   started: boolean // маршрут уже проложен (move, attack)
   nextId: number | null // событие, которое начнётся после этого (П12)

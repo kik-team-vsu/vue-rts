@@ -155,9 +155,9 @@ export default {
         [MUTATIONS.MOVE_UNITS]: (state, secondsPassed) => {
             advanceUnits(state, secondsPassed)
         },
-        // Наносим урон юниту-цели; мёртвых убирает removeDead
+        // Наносим урон цели - юниту или зданию; мёртвых убирает removeDead
         [MUTATIONS.APPLY_DAMAGE]: (state, {targetId, damage}) => {
-            const target = state.units.find((u) => u.id === targetId)
+            const target = state.units.find((u) => u.id === targetId) ?? state.objects.find((o) => o.id === targetId)
             if (target) {
                 target.hp -= damage
             }
