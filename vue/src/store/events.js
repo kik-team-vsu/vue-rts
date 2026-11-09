@@ -28,6 +28,10 @@ export const EVENT_STATUS = {
 // расстояние между юнитами в строю
 const FORMATION_STEP = 40
 
+// сколько маршрутов прокладываем за один кадр: дальний A* заметно дороже мгновенного,
+// и большая группа растягивается на пару кадров вместо одного длинного зависания
+const ROUTES_PER_TICK = 4
+
 // Точки для группы юнитов вокруг point: квадратный строй, чтобы юниты не сбивались в одну точку
 const formationTargets = (units, point) => {
   const columns = Math.ceil(Math.sqrt(units.length))
@@ -200,10 +204,12 @@ export default {
       dispatch('startPending')
     },
     // Запустить новые активные события движения (move и attack): проложить маршрут.
-    // Юниты, начавшие движение в одном кадре, не получают одно и то же место назначения (reserved)
+    // Юниты, начавшие движение в одном кадре, не получают одно и то же место назначения (reserved).
+    // Остальные события подберёт следующий кадр: цикл зовёт startPending каждый тик
     startPending: ({ getters, commit, rootGetters }) => {
       const reserved = []
-      for (const event of getters.getActive.filter((e) => (e.type === 'move' || e.type === 'attack') && !e.started)) {
+      const pending = getters.getActive.filter((e) => (e.type === 'move' || e.type === 'attack') && !e.started)
+      for (const event of pending.slice(0, ROUTES_PER_TICK)) {
         commit('world/SET_UNIT_TARGET', {
           id: event.actorId,
           target: event.target,

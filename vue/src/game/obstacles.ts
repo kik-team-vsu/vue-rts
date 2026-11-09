@@ -1,8 +1,8 @@
 import { OBJECT_TYPES } from './config'
 import { ISO_SCALE } from './coords'
-import { isAreaFree, isSweepFree, squareFootprint } from './spatial'
+import { isAreaFree, isInsideMap, objectsSweepFree, squareFootprint, sweepFootprintsFree, unitFootprint } from './spatial'
 import type { CollisionOptions, Footprint } from './spatial'
-import { bridgesOf, isFootprintTerrainPassable } from './terrain'
+import { bridgesOf, isFootprintTerrainPassable, solidZonesInBox } from './terrain'
 import type { Point, StaticObject, TerrainType, TerrainZone, Unit } from './types'
 
 export interface NavigationOptions extends CollisionOptions {
@@ -16,22 +16,51 @@ const isTerrainFree = (
   bridges: readonly Footprint[] = [],
 ): boolean => isFootprintTerrainPassable(squareFootprint(point, margin), zones, terrain, bridges)
 
-// Область, где высокий объект закрывает юнита в изометрии
-export const isHidden = (point: Point, objects: readonly StaticObject[], margin: number): boolean =>
-  objects.some((o) => {
-    const type = OBJECT_TYPES[o.type]
-    if (!type.wallHeight) {
-      return false
+// Высокие объекты для зон перекрытия: их форма не зависит от margin, считаем один раз
+// на массив объектов (он заменяется целиком при загрузке сценария и удалении - как bridgesOf)
+interface TallShape {
+  x: number
+  y: number
+  halfWidth: number
+  halfHeight: number
+  hidden: number
+}
+
+const tallCache = new WeakMap<readonly StaticObject[], TallShape[]>()
+const tallShapes = (objects: readonly StaticObject[]): TallShape[] => {
+  let shapes = tallCache.get(objects)
+  if (!shapes) {
+    shapes = []
+    for (const object of objects) {
+      const type = OBJECT_TYPES[object.type]
+      // без wallHeight у объекта нет зоны перекрытия; неизвестный тип пропускаем
+      if (!type?.wallHeight) continue
+      shapes.push({
+        x: object.position.x,
+        y: object.position.y,
+        halfWidth: type.width / 2,
+        halfHeight: type.height / 2,
+        hidden: (type.wallHeight + (type.roofHeight ?? 0)) / ISO_SCALE,
+      })
     }
-    const halfWidth = type.width / 2 + margin
-    const halfHeight = type.height / 2 + margin
-    const x = point.x - o.position.x
-    const y = point.y - o.position.y
-    const hidden = (type.wallHeight + (type.roofHeight ?? 0)) / ISO_SCALE
+    tallCache.set(objects, shapes)
+  }
+  return shapes
+}
+
+// Область, где высокий объект закрывает юнита в изометрии
+export const isHidden = (point: Point, objects: readonly StaticObject[], margin: number): boolean => {
+  for (const shape of tallShapes(objects)) {
+    const x = point.x - shape.x
+    const y = point.y - shape.y
+    const halfWidth = shape.halfWidth + margin
+    const halfHeight = shape.halfHeight + margin
     const tMin = Math.max(0, -halfWidth - x, -halfHeight - y)
-    const tMax = Math.min(hidden, halfWidth - x, halfHeight - y)
-    return tMin < tMax
-  })
+    const tMax = Math.min(shape.hidden, halfWidth - x, halfHeight - y)
+    if (tMin < tMax) return true
+  }
+  return false
+}
 
 // Навигация учитывает основание объекта, тип местности юнита и зону визуального перекрытия
 export const isBlocked = (
@@ -40,22 +69,64 @@ export const isBlocked = (
   isHidden(point, objects, margin) ||
   !isTerrainFree(point, margin, options.terrain, options.terrainZones, bridgesOf(objects))
 
-export const isSegmentFree = (
+// Для зон перекрытия достаточно шага 5 мировых пикселей
+const HIDDEN_STEP = 5
+
+// Статическая часть проверки отрезка: статичные объекты, местность и зоны перекрытия.
+// Не зависит от юнитов и зарезервированных мест, поэтому вердикт для ребра сетки навигации
+// всегда одинаков - pathfinding кэширует его прямо в сетке
+export const isSegmentFreeStatic = (
   from: Point, to: Point, objects: readonly StaticObject[], margin: number, options: NavigationOptions = {},
 ): boolean => {
-  if (!isSweepFree({ objects, units: options.units ?? [] }, squareFootprint(from, margin), to, options)) return false
-  // Из визуальной зоны разрешён выход; физическое наложение проверено выше.
-  // Для визуальной зоны достаточно шага 5 мировых пикселей.
-  const count = Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / 5)
+  const area = squareFootprint(from, margin)
+  if (!isInsideMap(area) || !isInsideMap({ ...area, position: to })) return false
+  const scratch: Footprint = { position: { x: 0, y: 0 }, halfWidth: 0, halfHeight: 0 }
+  if (!objectsSweepFree(objects, from, to, area, scratch, options.ignoreId)) return false
+  // Местность достаточно проверить по зонам, пересекающим коробку отрезка
+  const x0 = Math.min(from.x, to.x) - margin
+  const y0 = Math.min(from.y, to.y) - margin
+  const x1 = Math.max(from.x, to.x) + margin
+  const y1 = Math.max(from.y, to.y) + margin
+  const zones = solidZonesInBox(options.terrainZones ?? [], x0, y0, x1, y1)
   const bridges = bridgesOf(objects)
+  // Вне твёрдых зон кругом суша: водному юниту без моста в коробке отрезок закрыт без шагов,
+  // остальным проверять местность не нужно. Мост в коробке заставляет шагать:
+  // с пустым списком зон шаг сводится к проверке настила в каждой точке
+  let stepTerrain = zones.length > 0
+  if (!stepTerrain && options.terrain === 'water') {
+    const spanned = bridges.some((bridge) => bridge.position.x + bridge.halfWidth >= x0 &&
+      bridge.position.x - bridge.halfWidth <= x1 &&
+      bridge.position.y + bridge.halfHeight >= y0 &&
+      bridge.position.y - bridge.halfHeight <= y1)
+    if (!spanned) return false
+    stepTerrain = true
+  }
+  const count = Math.ceil(Math.sqrt((to.x - from.x) ** 2 + (to.y - from.y) ** 2) / HIDDEN_STEP)
+  const probe: Point = { x: 0, y: 0 }
+  const probeArea = { position: probe, halfWidth: margin, halfHeight: margin }
   let leaving = isHidden(from, objects, margin)
   for (let i = 1; i <= count; i++) {
     const t = i / count
-    const point = { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }
-    if (!isTerrainFree(point, margin, options.terrain, options.terrainZones, bridges)) return false
-    const hidden = isHidden(point, objects, margin)
+    probe.x = from.x + (to.x - from.x) * t
+    probe.y = from.y + (to.y - from.y) * t
+    if (stepTerrain && !isFootprintTerrainPassable(probeArea, zones, options.terrain, bridges)) return false
+    // Из визуальной зоны разрешён выход; физическое наложение проверено выше
+    const hidden = isHidden(probe, objects, margin)
     if (hidden && !leaving) return false
     if (!hidden) leaving = false
   }
   return true
 }
+
+// Динамическая часть: живые юниты и зарезервированные в этом приказе места
+export const isSweepBlockersFree = (
+  from: Point, to: Point, blockers: readonly Footprint[], margin: number,
+): boolean => sweepFootprintsFree(blockers, from, to, squareFootprint(from, margin))
+
+export const isSegmentFree = (
+  from: Point, to: Point, objects: readonly StaticObject[], margin: number, options: NavigationOptions = {},
+): boolean => isSegmentFreeStatic(from, to, objects, margin, options) &&
+  isSweepBlockersFree(from, to, [
+    ...(options.units ?? []).filter((unit) => unit.id !== options.ignoreId).map(unitFootprint),
+    ...(options.reserved ?? []),
+  ], margin)

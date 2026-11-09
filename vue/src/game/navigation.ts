@@ -16,6 +16,7 @@ const EDGE_PAD = SEARCH_STEP * Math.SQRT1_2 + 1
 
 const cellX = (col: number) => -MAP.width / 2 + col * SEARCH_STEP
 const cellY = (row: number) => -MAP.height / 2 + row * SEARCH_STEP
+export { cellX, cellY }
 export const cellToPoint = (cell: number): Point => ({ x: cellX(cell % COLS), y: cellY(Math.floor(cell / COLS)) })
 
 export const pointToCell = (point: Point): number => {
@@ -30,6 +31,7 @@ export interface NavigationGrid {
   hidden: Uint8Array // 1 - высокий объект закрывает юнита: сюда можно только выйти
   near: Uint8Array // 1 - ближе EDGE_PAD к препятствию, ребро проверяется точно
   component: Int32Array // компонента связности свободных клеток, -1 у занятых и скрытых
+  edge: Uint8Array // кэш точной проверки рёбер: 2 бита на направление (E, SE, S, SW), 0 - не проверено, 1 - свободно, 2 - занято
 }
 
 // Закрашиваем клетки, центр которых строго внутри области
@@ -104,7 +106,8 @@ const buildGrid = (
 ): NavigationGrid => {
   const size = COLS * ROWS
   const grid = {
-    blocked: new Uint8Array(size), hidden: new Uint8Array(size), near: new Uint8Array(size), component: new Int32Array(size),
+    blocked: new Uint8Array(size), hidden: new Uint8Array(size), near: new Uint8Array(size),
+    component: new Int32Array(size), edge: new Uint8Array(size),
   }
   for (const object of objects) {
     // Проходимые объекты (мосты) не закрашиваем: по настилу ходят,
@@ -152,7 +155,9 @@ export const navigationGrid = (
   return grid
 }
 
-// Юниты и зарезервированные цели меняются каждый приказ: копируем маски и закрашиваем их поверх
+// Юниты и зарезервированные цели меняются каждый приказ: копируем маски и закрашиваем их поверх.
+// Кэш рёбер edge не копируем и не чистим: он хранит только статические вердикты
+// (объекты, местность, перекрытия), которые от юнитов не зависят
 export const withDynamicBlockers = (grid: NavigationGrid, blockers: readonly Footprint[], margin: number): NavigationGrid => {
   if (!blockers.length) return grid
   const blocked = grid.blocked.slice()
