@@ -155,13 +155,13 @@ const worldStyle = computed(() => ({
 }))
 
 
-// Кто кого атакует: линия от атакующего к цели и кольцо на цели.
+// Кто кого атакует: линия от атакующего к цели и кольцо на цели (цель - юнит или здание).
 // Цели может уже не быть - тогда атакующий скоро выйдет из режима атаки
 const attacks = computed(() => {
   const result = []
   for (const unit of units.value) {
     if (!unit.isAttacking || unit.targetId == null) continue
-    const target = units.value.find((u) => u.id === unit.targetId)
+    const target = store.getters['world/getById'](unit.targetId)
     if (!target) continue
     const from = worldToScreen(unit.position)
     const to = worldToScreen(target.position)
