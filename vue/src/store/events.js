@@ -1,12 +1,12 @@
-import { UNIT_TYPES } from '@/game/config'
-import { ATTACK_RANGE, CLICK_RADIUS, attackRange } from '@/game/combat'
+import { OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
+import { ATTACK_RANGE, CLICK_RADIUS, attackRange, distanceToBuilding, isAttackableBuilding } from '@/game/combat'
 import { clampUnitTarget } from '@/game/movement'
 import { unitFootprint } from '@/game/spatial'
 
 // Хранилище текущих событий (формат - GameEvent в game/types.ts).
 // Игрок и сценарии только создают события, а применяет их к элементам карты игровой цикл (engine/tick):
 // событие move при старте прокладывает юниту маршрут (A* из game/pathfinding), а когда юнит дошёл - завершается.
-// Событие attack гонится за целью: в радиусе атаки юнит стоит и бьёт, завершается смертью цели.
+// Событие attack гонится за целью (юнит или здание): в радиусе атаки юнит стоит и бьёт, завершается смертью цели.
 
 const MUTATIONS = {
   ADD: 'ADD',
@@ -175,7 +175,7 @@ export default {
       })
       dispatch('startPending')
     },
-    // Приказ по ПКМ игрока: чужой юнит под курсором - приказ атаки, иначе идём к точке строем.
+    // Приказ по ПКМ игрока: чужой юнит под курсором или чужое здание - приказ атаки, иначе идём к точке строем.
     // append - добавить приказ в конец очереди (Shift + ПКМ)
     orderByClick: ({ dispatch, rootGetters }, { actorIds, point, append = false }) => {
       if (!rootGetters['game/isRunning'] || !Number.isFinite(point?.x) || !Number.isFinite(point?.y)) {
@@ -185,15 +185,20 @@ export default {
       if (!units.length) {
         return
       }
-      // Юнит под курсором ищется один раз до цикла; клик по чужому юниту - приказ атаки
+      // Цель под курсором ищется один раз до цикла: юнит в радиусе клика,
+      // иначе здание, внутри основания которого попал клик
       const clickedUnit = rootGetters['world/getUnits'].find((u) =>
         Math.abs(u.position.x - point.x) < CLICK_RADIUS && Math.abs(u.position.y - point.y) < CLICK_RADIUS)
+      const clickedBuilding = clickedUnit ? null : rootGetters['world/getObjects'].find((o) => isAttackableBuilding(o) &&
+        Math.abs(o.position.x - point.x) < OBJECT_TYPES[o.type].width / 2 &&
+        Math.abs(o.position.y - point.y) < OBJECT_TYPES[o.type].height / 2)
+      const clickedTarget = clickedUnit ?? clickedBuilding
 
-      const attackers = clickedUnit ? units.filter((unit) => clickedUnit.group !== unit.group) : []
+      const attackers = clickedTarget ? units.filter((unit) => clickedTarget.group !== unit.group) : []
       // строю остаются только идущие: места в строю не уходят атакующим
       const movers = units.filter((unit) => !attackers.includes(unit))
       attackers.forEach((unit) => {
-        dispatch('create', { type: 'attack', actorId: unit.id, target: { ...clickedUnit.position }, targetId: clickedUnit.id, append })
+        dispatch('create', { type: 'attack', actorId: unit.id, target: { ...clickedTarget.position }, targetId: clickedTarget.id, append })
       })
       if (movers.length) {
         const targets = formationTargets(movers, point)
@@ -230,14 +235,21 @@ export default {
       for (const event of getters.getActive.filter((e) => e.type === 'attack')) {
         const unit = rootGetters['world/getById'](event.actorId)
         const target = rootGetters['world/getById'](event.targetId)
-        if (!unit || !target || !(target.type in UNIT_TYPES)) {
+        const isUnitTarget = !!target && target.type in UNIT_TYPES
+        // цель-здание: статический объект с hp (деревья и мосты атаковать нельзя)
+        const isBuildingTarget = !!target && isAttackableBuilding(target)
+        if (!unit || !(isUnitTarget || isBuildingTarget)) {
           // Юнит пропал или цель умерла - выходим из режима атаки
           if (unit) commit('world/STOP_ATTACK', unit.id, { root: true })
           dispatch('complete', event.id)
           continue
         }
-        const distance = Math.hypot(unit.position.x - target.position.x, unit.position.y - target.position.y)
-        if (distance <= attackRange(unit, target)) {
+        // Юнит в радиусе, если дошёл до корпуса цели; здание мерим до стен -
+        // центр большого здания дальше от стен, чем запас дальности атаки
+        const inRange = isUnitTarget
+          ? Math.hypot(unit.position.x - target.position.x, unit.position.y - target.position.y) <= attackRange(unit, target)
+          : distanceToBuilding(unit, target) <= ATTACK_RANGE
+        if (inRange) {
           // В радиусе атаки стоим и бьём, приказ движения больше не нужен
           if (unit.target) commit('world/STOP_UNIT', unit.id, { root: true })
           const stats = UNIT_TYPES[unit.type]
@@ -247,7 +259,7 @@ export default {
           }, { root: true })
           continue
         }
-        // Цель жива, но отошла от точки приказа дальше дальности атаки - догоняем по текущей позиции
+        // Цель жива, но отошла от точки приказа дальше дальности атаки - догоняем по текущей позиции.
         const goal = event.target
         if (!goal || Math.hypot(target.position.x - goal.x, target.position.y - goal.y) > ATTACK_RANGE) {
           commit(MUTATIONS.SET_EVENT_TARGET, { id: event.id, target: { ...target.position } })
