@@ -100,7 +100,7 @@ export const findPath = (
     ...(options.units ?? []).filter((unit) => unit.id !== options.ignoreId).map(unitFootprint),
     ...(options.reserved ?? []),
   ]
-  const grid = withDynamicBlockers(navigationGrid(objects, margin, options.terrain, options.terrainZones), blockers, margin)
+  const grid = withDynamicBlockers(navigationGrid(objects, margin, options.terrain, options.terrainMap), blockers, margin)
   const { blocked, hidden, near, edge } = grid
 
   // Проверка отрезка делится на статику и динамику. Статический вердикт зависит
@@ -108,7 +108,7 @@ export const findPath = (
   // юниты и зарезервированные места проверяются на месте - они живут один приказ
   const dynamicFree = (a: Point, b: Point) => isSweepBlockersFree(a, b, blockers, margin)
   const staticFree = (a: Point, b: Point) => isSegmentFreeStatic(a, b, objects, margin, {
-    terrain: options.terrain, terrainZones: options.terrainZones,
+    terrain: options.terrain, terrainMap: options.terrainMap,
   })
   const free = (a: Point, b: Point) => staticFree(a, b) && dynamicFree(a, b)
   if (!free(from, from)) return []

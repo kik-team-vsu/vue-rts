@@ -445,6 +445,10 @@ onUnmounted(() => {
   top: 50%;
   width: 0;
   height: 0;
+
+  // Камера двигает мир каждый кадр: без этого hints браузер перерисовывает
+  // всю карту заново вместо сдвига готового слоя на GPU
+  will-change: transform;
 }
 
 .objects-layer {

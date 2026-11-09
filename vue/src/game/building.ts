@@ -1,6 +1,7 @@
 import { MAP, OBJECT_TYPES } from './config'
 import { isAreaFree, isInsideMap, overlaps, staticFootprint } from './spatial'
 import type { CollisionWorld, Footprint } from './spatial'
+import { hasSolidTerrainUnder } from './terrain'
 import type { BuildingType, Point } from './types'
 
 export interface BuildingPlacement {
@@ -15,15 +16,10 @@ export const getBuildingType = (id: string): BuildingType | null => {
   return 'size' in type ? type : null
 }
 
-// Проверяем всю площадь, чтобы даже узкая полоса воды под краем не осталась незамеченной
+// Проверяем все клетки под площадью: даже узкая полоса воды у края не останется незамеченной
 export const getBuildingError = (world: CollisionWorld, area: Footprint): string => {
   if (!isInsideMap(area)) return 'За пределами карты'
-  const blockedTerrain = (world.terrainZones ?? []).some((zone) => zone.type !== 'sand' && overlaps(area, {
-    position: { x: zone.x + zone.width / 2, y: zone.y + zone.height / 2 },
-    halfWidth: zone.width / 2,
-    halfHeight: zone.height / 2,
-  }))
-  if (blockedTerrain) return 'Неподходящая местность'
+  if (hasSolidTerrainUnder(world.terrainMap, area)) return 'Неподходящая местность'
   // Мост проходим для юнитов, но его место нельзя занять постройкой
   const onBridge = world.objects.some((object) =>
     OBJECT_TYPES[object.type]?.passable && overlaps(area, staticFootprint(object)))

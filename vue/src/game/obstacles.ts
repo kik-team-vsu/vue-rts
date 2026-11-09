@@ -2,19 +2,20 @@ import { OBJECT_TYPES } from './config'
 import { ISO_SCALE } from './coords'
 import { isAreaFree, isInsideMap, objectsSweepFree, squareFootprint, sweepFootprintsFree, unitFootprint } from './spatial'
 import type { CollisionOptions, Footprint } from './spatial'
-import { bridgesOf, isFootprintTerrainPassable, solidZonesInBox } from './terrain'
-import type { Point, StaticObject, TerrainType, TerrainZone, Unit } from './types'
+import { bridgesOf, EMPTY_TERRAIN, isFootprintTerrainPassable } from './terrain'
+import type { TerrainMap } from './terrain'
+import type { Point, StaticObject, TerrainType, Unit } from './types'
 
 export interface NavigationOptions extends CollisionOptions {
   units?: readonly Unit[]
   terrain?: TerrainType | 'both' // где ходит юнит, undefined - по суше и воде
-  terrainZones?: readonly TerrainZone[] // местность сценария: реки, озёра, горы
+  terrainMap?: TerrainMap // карта местности сценария: реки, озёра, горы
 }
 
 const isTerrainFree = (
-  point: Point, margin: number, terrain?: TerrainType | 'both', zones: readonly TerrainZone[] = [],
+  point: Point, margin: number, terrain?: TerrainType | 'both', map: TerrainMap = EMPTY_TERRAIN,
   bridges: readonly Footprint[] = [],
-): boolean => isFootprintTerrainPassable(squareFootprint(point, margin), zones, terrain, bridges)
+): boolean => isFootprintTerrainPassable(squareFootprint(point, margin), map, terrain, bridges)
 
 // Высокие объекты для зон перекрытия: их форма не зависит от margin, считаем один раз
 // на массив объектов (он заменяется целиком при загрузке сценария и удалении - как bridgesOf)
@@ -67,7 +68,7 @@ export const isBlocked = (
   point: Point, objects: readonly StaticObject[], margin: number, options: NavigationOptions = {},
 ): boolean => !isAreaFree({ objects, units: options.units ?? [] }, squareFootprint(point, margin), options) ||
   isHidden(point, objects, margin) ||
-  !isTerrainFree(point, margin, options.terrain, options.terrainZones, bridgesOf(objects))
+  !isTerrainFree(point, margin, options.terrain, options.terrainMap ?? EMPTY_TERRAIN, bridgesOf(objects))
 
 // Для зон перекрытия достаточно шага 5 мировых пикселей
 const HIDDEN_STEP = 5
@@ -82,18 +83,17 @@ export const isSegmentFreeStatic = (
   if (!isInsideMap(area) || !isInsideMap({ ...area, position: to })) return false
   const scratch: Footprint = { position: { x: 0, y: 0 }, halfWidth: 0, halfHeight: 0 }
   if (!objectsSweepFree(objects, from, to, area, scratch, options.ignoreId)) return false
-  // Местность достаточно проверить по зонам, пересекающим коробку отрезка
-  const x0 = Math.min(from.x, to.x) - margin
-  const y0 = Math.min(from.y, to.y) - margin
-  const x1 = Math.max(from.x, to.x) + margin
-  const y1 = Math.max(from.y, to.y) + margin
-  const zones = solidZonesInBox(options.terrainZones ?? [], x0, y0, x1, y1)
+  const map = options.terrainMap ?? EMPTY_TERRAIN
   const bridges = bridgesOf(objects)
-  // Вне твёрдых зон кругом суша: водному юниту без моста в коробке отрезок закрыт без шагов,
-  // остальным проверять местность не нужно. Мост в коробке заставляет шагать:
-  // с пустым списком зон шаг сводится к проверке настила в каждой точке
-  let stepTerrain = zones.length > 0
+  // Без воды и гор на карте шагать не нужно: кругом суша. Водному юниту
+  // без зон воды отрезок закрыт сразу - если только через коробку не проходит мост,
+  // тогда шагаем: каждая проверка сводится к настилу моста в точке
+  let stepTerrain = map.hasSolid
   if (!stepTerrain && options.terrain === 'water') {
+    const x0 = Math.min(from.x, to.x) - margin
+    const y0 = Math.min(from.y, to.y) - margin
+    const x1 = Math.max(from.x, to.x) + margin
+    const y1 = Math.max(from.y, to.y) + margin
     const spanned = bridges.some((bridge) => bridge.position.x + bridge.halfWidth >= x0 &&
       bridge.position.x - bridge.halfWidth <= x1 &&
       bridge.position.y + bridge.halfHeight >= y0 &&
@@ -109,7 +109,7 @@ export const isSegmentFreeStatic = (
     const t = i / count
     probe.x = from.x + (to.x - from.x) * t
     probe.y = from.y + (to.y - from.y) * t
-    if (stepTerrain && !isFootprintTerrainPassable(probeArea, zones, options.terrain, bridges)) return false
+    if (stepTerrain && !isFootprintTerrainPassable(probeArea, map, options.terrain, bridges)) return false
     // Из визуальной зоны разрешён выход; физическое наложение проверено выше
     const hidden = isHidden(probe, objects, margin)
     if (hidden && !leaving) return false

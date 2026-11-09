@@ -2,8 +2,9 @@ import { MAP, OBJECT_TYPES } from './config'
 import { ISO_SCALE } from './coords'
 import { isInsideMap, SEARCH_STEP, squareFootprint, staticFootprint } from './spatial'
 import type { Footprint } from './spatial'
-import { isFootprintTerrainPassable, bridgesOf } from './terrain'
-import type { Point, StaticObject, TerrainType, TerrainZone } from './types'
+import { bridgesOf, EMPTY_TERRAIN, isFootprintTerrainPassable } from './terrain'
+import type { TerrainMap } from './terrain'
+import type { Point, StaticObject, TerrainType } from './types'
 
 // Растровые маски для A*. Статика сценария не меняется между приказами,
 // поэтому геометрия считается один раз на сетку, а поиск читает массивы.
@@ -102,7 +103,7 @@ const labelComponents = (grid: NavigationGrid) => {
 }
 
 const buildGrid = (
-  objects: readonly StaticObject[], margin: number, terrain: TerrainType | 'both' | undefined, zones: readonly TerrainZone[],
+  objects: readonly StaticObject[], margin: number, terrain: TerrainType | 'both' | undefined, map: TerrainMap,
 ): NavigationGrid => {
   const size = COLS * ROWS
   const grid = {
@@ -121,11 +122,11 @@ const buildGrid = (
     if (grid.blocked[cell]) continue
     const point = cellToPoint(cell)
     if (!isInsideMap(squareFootprint(point, margin)) ||
-      !isFootprintTerrainPassable(squareFootprint(point, margin), zones, terrain, bridges)) {
+      !isFootprintTerrainPassable(squareFootprint(point, margin), map, terrain, bridges)) {
       grid.blocked[cell] = 1
       grid.near[cell] = 1
-    } else if (!grid.near[cell] && zones.length &&
-      !isFootprintTerrainPassable(squareFootprint(point, margin + EDGE_PAD), zones, terrain, bridges)) {
+    } else if (!grid.near[cell] && map.hasSolid &&
+      !isFootprintTerrainPassable(squareFootprint(point, margin + EDGE_PAD), map, terrain, bridges)) {
       grid.near[cell] = 1
     }
   }
@@ -134,20 +135,20 @@ const buildGrid = (
 }
 
 // Объекты могут меняться на месте (push при постройке), поэтому ключ - содержимое, а не массив
-const signature = (objects: readonly StaticObject[], margin: number, terrain: string | undefined, zones: readonly TerrainZone[]) =>
-  `${margin}|${terrain}|${zones.map((z) => `${z.type},${z.x},${z.y},${z.width},${z.height}`).join(';')}|` +
+const signature = (objects: readonly StaticObject[], margin: number, terrain: string | undefined, map: TerrainMap) =>
+  `${margin}|${terrain}|${map.key}|` +
   objects.map((o) => `${o.type},${o.position.x},${o.position.y}`).join(';')
 
 const GRID_CACHE_SIZE = 16
 const gridCache = new Map<string, NavigationGrid>()
 
 export const navigationGrid = (
-  objects: readonly StaticObject[], margin: number, terrain?: TerrainType | 'both', zones: readonly TerrainZone[] = [],
+  objects: readonly StaticObject[], margin: number, terrain?: TerrainType | 'both', map: TerrainMap = EMPTY_TERRAIN,
 ): NavigationGrid => {
-  const key = signature(objects, margin, terrain, zones)
+  const key = signature(objects, margin, terrain, map)
   let grid = gridCache.get(key)
   if (!grid) {
-    grid = buildGrid(objects, margin, terrain, zones)
+    grid = buildGrid(objects, margin, terrain, map)
     if (gridCache.size >= GRID_CACHE_SIZE) gridCache.delete(gridCache.keys().next().value!)
   }
   gridCache.delete(key)
