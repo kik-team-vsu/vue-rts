@@ -19,8 +19,8 @@ const WATER_ZONES: TerrainZone[] = [
 
 // Зоны гор
 const MOUNTAINS_ZONES: TerrainZone[] = [
-  { type: 'mountain', col: 8, row: 6, cols: 10, rows: 10 },
-  { type: 'mountain', col: 14, row: 55, cols: 25, rows: 5 },
+  { type: 'mountain', col: 5, row: 5, cols: 10, rows: 10 },
+  { type: 'mountain', col: 15, row: 55, cols: 25, rows: 5 },
 ]
 
 // зоны местности: озёра и реки - вода, горы - непроходимы, всё вне зон - суша
