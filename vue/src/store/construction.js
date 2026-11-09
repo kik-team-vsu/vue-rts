@@ -23,7 +23,13 @@ export default {
         x: state.cursor.x - state.viewport.width / 2 + rootState.camera.x,
         y: state.cursor.y - state.viewport.height / 2 + rootState.camera.y,
       })
-      return getBuildingPlacement(rootState.world, state.typeId, point)
+      const placement = getBuildingPlacement(rootState.world, state.typeId, point)
+      // Лимит зданий этого типа у выбранной группы достигнут: место считаем невалидным
+      if (placement && getters.getType &&
+          rootGetters['world/countObjectsOfType'](state.group, state.typeId) >= getters.getType.maxPerGroup) {
+        return { ...placement, valid: false, reason: 'Лимит зданий достигнут' }
+      }
+      return placement
     },
   },
   mutations: {

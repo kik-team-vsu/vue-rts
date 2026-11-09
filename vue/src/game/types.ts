@@ -37,6 +37,7 @@ export interface BuildingType extends ObjectType {
   size: number // сторона квадрата в клетках сетки
   maxHp: number
   spawns?: string[]
+  maxPerGroup: number // максимум живых зданий этого типа у одной группы: строительство запрещается
 }
 
 export interface UnitType extends ObjectType {

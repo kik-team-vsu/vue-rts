@@ -100,6 +100,10 @@ export default {
         // Для лимита создания: UNIT_TYPES[unitType].maxPerGroup
         countUnitsOfType: (state) => (group, unitType) =>
             state.units.filter((u) => u.group === group && u.type === unitType).length,
+        // Сколько живых зданий типа objectType сейчас у группы (разрушенные покидают стор в removeDead);
+        // Для лимита строительства: OBJECT_TYPES[objectType].maxPerGroup
+        countObjectsOfType: (state) => (group, objectType) =>
+            state.objects.filter((o) => o.group === group && o.type === objectType).length,
     },
     mutations: {
         // Расстановка и местность сценария

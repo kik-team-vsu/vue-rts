@@ -24,10 +24,11 @@
           :key="building.id"
           class="command-panel__button command-panel__button--build"
           :aria-pressed="buildingType === building.id"
-          :disabled="paused"
+          :disabled="paused || isBuildingAtLimit(building.id)"
           @mousedown.prevent
           @click="startBuilding(building.id)">
         {{ building.name }} {{ building.size }}×{{ building.size }}
+        ({{ buildingCount(building.id) }}/{{ building.maxPerGroup }})
       </button>
     </div>
     <template v-if="buildingType">
@@ -64,7 +65,7 @@ const paused = computed<boolean>(() => store.getters['game/getPaused'])
 const buildingType = computed<string | null>(() => store.getters['construction/getTypeId'])
 const buildings = Object.keys(OBJECT_TYPES).flatMap((id) => {
   const type = getBuildingType(id)
-  return type ? [{ id, name: type.name, size: type.size }] : []
+  return type ? [{ id, name: type.name, size: type.size, maxPerGroup: type.maxPerGroup }] : []
 })
 const startBuilding = (typeId: string) => store.dispatch('construction/start', typeId)
 const cancelBuilding = () => store.dispatch('construction/cancel')
@@ -74,6 +75,14 @@ const selectedGroup = computed<number>(() => store.getters['construction/getGrou
 const groups = GROUP_PALETTE.map((_, index) => index + 1)
 const chooseGroup = (group: number) => store.dispatch('construction/setGroup', group)
 const groupTitle = (group: number) => group === PLAYER_GROUP ? `Группа ${group} (игрок)` : `Группа ${group}`
+
+// Сколько живых зданий этого типа уже есть у выбранной группы: у каждой группы свой лимит
+const buildingCount = (typeId: string) =>
+    store.getters['world/countObjectsOfType'](selectedGroup.value, typeId)
+const isBuildingAtLimit = (typeId: string) => {
+  const type = getBuildingType(typeId)
+  return type !== null && buildingCount(typeId) >= type.maxPerGroup
+}
 const selectedUnits = computed(() => store.getters['selection/getSelectedUnits'])
 const selected = computed<StaticObject | Unit | null>(() => store.getters['selection/getSelected'])
 
