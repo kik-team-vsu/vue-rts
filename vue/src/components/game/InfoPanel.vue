@@ -10,6 +10,7 @@
         <div>Сила: {{ unitType.strength }}</div>
         <div>Скорость атаки: {{ unitType.attackSpeed }}</div>
         <div>Скорость: {{ unitSpeed }}</div>
+        <div>Местность: {{ unitTerrain }}</div>
         <div>{{ unitAction }}</div>
       </template>
       <template v-else-if="buildingType">
@@ -20,11 +21,16 @@
     <template v-else-if="selectedUnits.length > 1">
       <div class="name">Выбрано юнитов: {{ selectedUnits.length }}</div>
       <div>ПКМ — отправить группу</div>
+      <div>Shift + ПКМ — добавить точку в очередь</div>
+      <div>Зажать ПКМ — вести за курсором</div>
     </template>
     <template v-else>
       <div>ЛКМ — выбрать</div>
       <div>ЛКМ с протяжкой — выбрать юнитов рамкой</div>
+      <div>Shift + ЛКМ — добавить или убрать юнита</div>
       <div>ПКМ — идти</div>
+      <div>Shift + ПКМ — добавить точку в очередь</div>
+      <div>Зажать ПКМ — вести юнитов за курсором</div>
       <div>Курсор к краю экрана — камера</div>
       <div>Зажать колёсико — двигать камеру</div>
     </template>
@@ -35,11 +41,11 @@
 import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
-import type { StaticObject, Unit } from '@/game/types'
+import type { GameEvent, StaticObject, Unit } from '@/game/types'
 
 const store = useStore()
-const selected = computed<StaticObject | Unit | null>(() => store.getters['game/getSelected'])
-const selectedUnits = computed<Unit[]>(() => store.getters['game/getSelectedUnits'])
+const selected = computed<StaticObject | Unit | null>(() => store.getters['selection/getSelected'])
+const selectedUnits = computed<Unit[]>(() => store.getters['selection/getSelectedUnits'])
 
 const unit = computed(() => {
   const selectedObject = selected.value
@@ -96,28 +102,49 @@ const unitSpeed = computed(() => {
   }
 })
 
-const unitAction = computed(() => {
-  if (unit.value) {
-    if (unit.value.target) {
-      return 'Движется'
-    }
-    else {
-      return 'Стоит'
-    }
+// по какой местности юнит может ходить
+const TERRAIN_NAMES = {
+  land: 'суша',
+  water: 'вода',
+  mountain: 'горы',
+  both: 'суша и вода',
+}
+
+const unitTerrain = computed(() => {
+  if (unitType.value) {
+    return TERRAIN_NAMES[unitType.value.terrain ?? 'both']
   }
+})
+
+// что юнит делает сейчас - по его текущему событию
+const currentEvent = computed<GameEvent | null>(() => (unit.value ? store.getters['events/getCurrent'](unit.value.id) : null))
+
+// сколько приказов ждут после текущего
+const queuedCount = computed(() => (unit.value ? store.getters['events/getByActor'](unit.value.id).length - 1 : 0))
+
+const unitAction = computed(() => {
+  if (!unit.value) {
+    return undefined
+  }
+  if (currentEvent.value?.type === 'move') {
+    return queuedCount.value > 0 ? `Движется, в очереди ещё ${queuedCount.value}` : 'Движется'
+  }
+  return 'Стоит'
 })
 </script>
 
 <style scoped lang="scss">
+@use '@/assets/styles/mixins' as *;
+
 .info-panel {
   position: absolute;
   left: 30px;
   bottom: 30px;
   min-width: 200px;
   padding: 10px 14px;
-  background: rgba(0, 0, 0, 0.7);
-  color: #fff;
-  border-radius: 6px;
+  background: $panel-background;
+  color: $panel-text-color;
+  border-radius: $panel-radius;
   pointer-events: none;
 }
 

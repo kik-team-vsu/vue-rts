@@ -66,20 +66,17 @@ const parts = computed(() => {
 </script>
 
 <style scoped lang="scss">
+@use '@/assets/styles/mixins' as *;
+
 // скат крыши
 .slope {
   position: absolute;
 }
 
 .edge {
-  position: absolute;
-  height: 0;
-  margin-top: -1px;
-  border-top: 2px solid rgba(0, 0, 0, 1);
   transform-origin: 0 50%;
 
-  .selected > & {
-    border-color: #fff;
-  }
+  @include line;
+  @include when-selected(border-color);
 }
 </style>

@@ -10,7 +10,7 @@
 
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .start-button {
   font-size: 36px;
 }
