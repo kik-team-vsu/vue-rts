@@ -119,7 +119,6 @@ export default {
             state.objects = structuredClone(scenario.objects)
             state.units = structuredClone(scenario.units)
             state.nextObjectId = nextId(scenario.objects, scenario.units)
-            // Карта местности не меняется в пределах партии - собираем один раз
             state.terrainMap = buildTerrainMap(scenario.terrain)
             state.production = []
             state.constructions = []

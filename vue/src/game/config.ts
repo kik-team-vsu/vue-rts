@@ -1,15 +1,7 @@
 import type { BuildingType, Command, ObjectType, StaticObject, TerrainZone, Unit, UnitType } from './types'
 
-// размер карты и cell - размер ячейики сетки в пикселях
 export const MAP = { width: 3000, height: 3000, cell: 50 }
 
-// Зоны местности задаются клетками MAP.cell × MAP.cell: col/row - левый верхний
-// угол от левого верхнего угла карты, cols/rows - размер в клетках.
-// Река идёт с севера на юг по x −350..−100 - ровно посередине между лагерями
-// групп 1 и 2 (те стоят примерно на x −750 и x 300), у озера поворачивает
-// на восток и впадает в него с западной стороны.
-// Песчаный берег вокруг воды и направление течения реки определяются
-// автоматически при сборке карты местности (terrain.ts)
 const WATER_ZONES: TerrainZone[] = [
   { type: 'river', col: 23, row: 0, cols: 5, rows: 40 },
   { type: 'river', col: 23, row: 17, cols: 19, rows: 5 },

@@ -9,8 +9,6 @@ import type { Point, StaticObject, TerrainType, TerrainZone } from './types'
 export const TERRAIN_COLS = MAP.width / MAP.cell
 export const TERRAIN_ROWS = MAP.height / MAP.cell
 
-// Код клетки: суша, песчаный берег, вода (озеро и река двух направлений) и горы.
-// Направление течения реки нужно только рендеру, для логики любая вода - вода
 export const CELL_LAND = 0
 export const CELL_SAND = 1
 export const CELL_LAKE = 2
@@ -63,9 +61,6 @@ const paintZone = (cells: Uint8Array, zone: TerrainZone, code: number) => {
   }
 }
 
-// Сборка карты из клеточных зон. Вода и горы - по декларациям (у реки направление
-// течения - вдоль длинной стороны зоны), песок - кольцо в одну клетку вокруг воды:
-// проходимая суша, только оформление берега, горы песок не трогает
 export const buildTerrainMap = (zones: readonly TerrainZone[]): TerrainMap => {
   const cells = new Uint8Array(TERRAIN_COLS * TERRAIN_ROWS)
   for (const zone of zones) {
@@ -130,8 +125,6 @@ export const isTerrainPassable = (
     isOnBridgeXY(point.x, point.y, bridges)
 }
 
-// Есть ли вода или горы в клетках под прямоугольником: зданию такая местность
-// не подходит, песчаный берег - можно. Касание края клетки не считается заходом
 export const hasSolidTerrainUnder = (map: TerrainMap | undefined, area: Footprint): boolean => {
   if (!map?.hasSolid) return false
   const minCol = Math.max(0, Math.floor((area.position.x - area.halfWidth + MAP.width / 2) / MAP.cell))
@@ -149,8 +142,6 @@ export const hasSolidTerrainUnder = (map: TerrainMap | undefined, area: Footprin
 // Насколько углы проверки основания сдвинуты внутрь, чтобы касание края не считалось выходом
 const TERRAIN_INSET = 4
 
-// Основание целиком: центр, середины сторон и углы, чуть уменьшенные внутрь.
-// Юнит или здание не должны заходить основанием на чужую местность, даже если центр ещё на своей
 export const isFootprintTerrainPassable = (
   area: Footprint, map: TerrainMap, terrain?: TerrainType | 'both', bridges: readonly Footprint[] = [],
 ): boolean => {

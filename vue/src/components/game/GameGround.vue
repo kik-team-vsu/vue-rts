@@ -18,10 +18,7 @@ import { MAP } from '@/game/config'
 import { CELL_LAKE, CELL_MOUNTAIN, CELL_RIVER_H, CELL_RIVER_V, CELL_SAND, TERRAIN_COLS, TERRAIN_ROWS } from '@/game/terrain'
 import type { TerrainMap } from '@/game/terrain'
 
-// Земля и местность сценария: только рисует карту клеток из стора world
-
-// Плитка текстуры местности: 250 px - пять клеток, узор ложится ровно по клеткам.
-// SVG масштабируется без потерь, поэтому сами файлы текстур остаются 256 px
+// Плитка текстуры местности
 const TEXTURE_SIZE = 250
 
 const store = useStore()
@@ -53,8 +50,6 @@ interface TerrainRun {
 }
 
 // Прямоугольники одинаковых клеток: сначала ряды строки, затем соседние строки
-// с теми же рядами склеиваются по вертикали. Чем меньше прямоугольников,
-// тем дешевле перерисовка мира при движении камеры
 const terrainRuns = computed<TerrainRun[]>(() => {
   const map: TerrainMap = store.getters['world/getTerrainMap']
   const finished: TerrainRun[] = []
@@ -91,10 +86,7 @@ const terrainRuns = computed<TerrainRun[]>(() => {
   return finished
 })
 
-// Прямоугольник в мировых координатах. Точка поворота - центр карты (мировой ноль),
-// как у .ground, иначе зона съедет: в локальных координатах прямоугольника мировой
-// ноль лежит в (-left, -top). Фаза текстуры - от угла карты, чтобы узор
-// был непрерывен между соседями без швов
+// Прямоугольник в мировых координатах. Точка поворота - центр карты (мировой ноль)
 const runStyle = (run: TerrainRun) => {
   const left = -MAP.width / 2 + run.col * MAP.cell
   const top = -MAP.height / 2 + run.row * MAP.cell

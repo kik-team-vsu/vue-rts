@@ -85,9 +85,6 @@ export const isSegmentFreeStatic = (
   if (!objectsSweepFree(objects, from, to, area, scratch, options.ignoreId)) return false
   const map = options.terrainMap ?? EMPTY_TERRAIN
   const bridges = bridgesOf(objects)
-  // Без воды и гор на карте шагать не нужно: кругом суша. Водному юниту
-  // без зон воды отрезок закрыт сразу - если только через коробку не проходит мост,
-  // тогда шагаем: каждая проверка сводится к настилу моста в точке
   let stepTerrain = map.hasSolid
   if (!stepTerrain && options.terrain === 'water') {
     const x0 = Math.min(from.x, to.x) - margin
