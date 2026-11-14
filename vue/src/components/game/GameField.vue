@@ -445,6 +445,7 @@ onUnmounted(() => {
   top: 50%;
   width: 0;
   height: 0;
+  will-change: transform;
 }
 
 .objects-layer {

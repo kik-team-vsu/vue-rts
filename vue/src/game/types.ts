@@ -6,16 +6,18 @@ export interface Point {
 // тип местности; горы непроходимы для всех юнитов
 export type TerrainType = 'land' | 'water' | 'mountain'
 
-// тип зоны на карте: озеро и река (оба - вода для юнитов), песок (проходимая суша) или горы
-export type TerrainZoneType = 'lake' | 'river' | 'sand' | 'mountain'
+// тип зоны на карте: озеро и река (оба - вода для юнитов) или горы;
+// песчаный берег не задаётся вручную - он генерируется вокруг воды при сборке карты
+export type TerrainZoneType = 'lake' | 'river' | 'mountain'
 
-// прямоугольная зона местности в мировых координатах, x и y - левый верхний угол
+// прямоугольная зона местности из клеток MAP.cell × MAP.cell:
+// col/row - левый верхний угол от левого верхнего угла карты, cols/rows - размер в клетках
 export interface TerrainZone {
   type: TerrainZoneType
-  x: number
-  y: number
-  width: number
-  height: number
+  col: number
+  row: number
+  cols: number
+  rows: number
 }
 
 export interface ObjectType {
@@ -129,7 +131,7 @@ export interface Scenario {
   name: string
   objects: StaticObject[]
   units: Unit[]
-  terrain: TerrainZone[] // реки, озёра, горы и песок этого сценария; [] - чистая суша
+  terrain: TerrainZone[] // зоны местности этого сценария в клетках; [] - чистая суша
   events: ScenarioEvent[]
 }
 

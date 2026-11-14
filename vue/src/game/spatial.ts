@@ -1,5 +1,6 @@
 import { MAP, OBJECT_TYPES, UNIT_TYPES } from './config'
-import type { Point, StaticObject, TerrainZone, Unit } from './types'
+import type { TerrainMap } from './terrain'
+import type { Point, StaticObject, Unit } from './types'
 
 // Основание на земле: центр и половины размеров в мировых координатах
 export interface Footprint {
@@ -11,7 +12,7 @@ export interface Footprint {
 export interface CollisionWorld {
   objects: readonly StaticObject[]
   units: readonly Unit[]
-  terrainZones?: readonly TerrainZone[] // местность сценария, без неё - чистая суша
+  terrainMap?: TerrainMap // карта местности сценария, без неё - чистая суша
 }
 
 export interface CollisionOptions {

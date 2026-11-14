@@ -2,7 +2,7 @@ import START_UNITS, {OBJECT_TYPES, START_OBJECTS, UNIT_TYPES} from '@/game/confi
 import {SCENARIOS} from '@/game/scenarios'
 import {advanceUnits, orderUnit} from '@/game/movement'
 import {getBuildingError, getBuildingType} from '@/game/building'
-import {bridgesOf, isFootprintTerrainPassable} from '@/game/terrain'
+import {bridgesOf, buildTerrainMap, isFootprintTerrainPassable} from '@/game/terrain'
 import {findNearestFreePosition, isAreaFree, staticFootprint, unitFootprint} from '@/game/spatial'
 
 // Хранилище всех элементов карты: статичные объекты (здания, деревья), юниты и зоны местности.
@@ -27,7 +27,7 @@ const MUTATIONS = {
 
 // Новый юнит появляется на своей местности, в том числе на проходимом настиле моста
 const fitsTerrain = (state, kind, object, area) =>
-    isFootprintTerrainPassable(area, state.terrainZones,
+    isFootprintTerrainPassable(area, state.terrainMap,
         kind === 'unit' ? UNIT_TYPES[object.type].terrain : 'land', bridgesOf(state.objects))
 
 const nextId = (objects, units) => Math.max(0, ...objects.map((object) => object.id), ...units.map((unit) => unit.id)) + 1
@@ -82,7 +82,7 @@ export default {
             units: structuredClone(START_UNITS),
             nextObjectId: nextId(START_OBJECTS, START_UNITS),
             // До старта в меню показываем карту первого сценария - базового
-            terrainZones: structuredClone(SCENARIOS[0].terrain),
+            terrainMap: buildTerrainMap(SCENARIOS[0].terrain),
             // Задания производства юнитов в зданиях (ProductionJob): у здания не бывает двух сразу
             production: [],
             // Задания строительства зданий (ConstructionJob): время идёт, готовое здание считается построенным
@@ -92,7 +92,7 @@ export default {
     getters: {
         getObjects: (state) => state.objects,
         getUnits: (state) => state.units,
-        getTerrainZones: (state) => state.terrainZones,
+        getTerrainMap: (state) => state.terrainMap,
         getAll: (state) => [...state.objects, ...state.units],
         // Объект или юнит по id, null если такого нет
         getById: (state) => (id) => state.objects.find((o) => o.id === id) ?? state.units.find((u) => u.id === id) ?? null,
@@ -119,7 +119,7 @@ export default {
             state.objects = structuredClone(scenario.objects)
             state.units = structuredClone(scenario.units)
             state.nextObjectId = nextId(scenario.objects, scenario.units)
-            state.terrainZones = structuredClone(scenario.terrain)
+            state.terrainMap = buildTerrainMap(scenario.terrain)
             state.production = []
             state.constructions = []
         },

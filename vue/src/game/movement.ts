@@ -17,7 +17,7 @@ const navigationOptions = (world: CollisionWorld, unit: Unit) => ({
   units: world.units,
   ignoreId: unit.id,
   terrain: terrainOf(unit),
-  terrainZones: world.terrainZones,
+  terrainMap: world.terrainMap,
 })
 
 // Игровое состояние меняется внутри синхронных mutations Vuex

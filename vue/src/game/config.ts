@@ -1,49 +1,22 @@
 import type { BuildingType, Command, ObjectType, StaticObject, TerrainZone, Unit, UnitType } from './types'
 
-// размер карты и cell - размер ячейики сетки в пикселях
 export const MAP = { width: 3000, height: 3000, cell: 50 }
 
-// ширина песчаного берега: узкая полоса вдоль каждого водоёма
-export const SAND_WIDTH = 22
-
-// водоёмы карты: озеро и одна река из двух прямоугольников.
-// Река идёт от северного края по x = -250 - ровно посередине между лагерями групп 1 и 2
-// (те стоят примерно на x -750 и x 300) - и у озера поворачивает на восток,
-// впадая в него с западной стороны. Приток перекрывает озеро на 20 px, щели на стыке нет.
-// У реки течение вдоль длинной стороны зоны: высокая зона получит плитку
-// с вертикальным течением, вытянутая по горизонтали - с обычным.
-// Зона в мировых координатах, x и y - левый верхний угол
 const WATER_ZONES: TerrainZone[] = [
-  { type: 'river', x: -350, y: -1500, width: 250, height: 2000 },
-  { type: 'river', x: -350, y: -670, width: 970, height: 250 },
-  { type: 'lake', x: 600, y: -700, width: 500, height: 450 },
-  { type: 'lake', x: -450, y: 500, width: 500, height: 400},
+  { type: 'river', col: 23, row: 0, cols: 5, rows: 40 },
+  { type: 'river', col: 23, row: 17, cols: 19, rows: 5 },
+  { type: 'lake', col: 42, row: 16, cols: 10, rows: 9 },
+  { type: 'lake', col: 21, row: 40, cols: 10, rows: 8 },
 ]
 
 // Зоны гор
 const MOUNTAINS_ZONES: TerrainZone[] = [
-  { type: 'mountain', x: -1100, y: -1200, width: 500, height: 500 },
-  { type: 'mountain', x: -800, y: 1250, width: 1250, height: 250 }
+  { type: 'mountain', col: 5, row: 5, cols: 10, rows: 10 },
+  { type: 'mountain', col: 15, row: 55, cols: 25, rows: 5 },
 ]
 
-// Песчаная подложка: прямоугольник водоёма плюс узкая полоса по каждой стороне.
-// Подложка рисуется под водой, поэтому песок виден ровно по краям водоёма.
-// Края обрезаем по карте: за её пределами зоны были бы видны мимо ромба.
-const shoreOf = (water: TerrainZone, width: number): TerrainZone => {
-  const left = Math.max(-MAP.width / 2, water.x - width)
-  const top = Math.max(-MAP.height / 2, water.y - width)
-  const right = Math.min(MAP.width / 2, water.x + water.width + width)
-  const bottom = Math.min(MAP.height / 2, water.y + water.height + width)
-  return { type: 'sand', x: left, y: top, width: right - left, height: bottom - top }
-}
-
-// зоны местности: песок - проходимый берег, озеро и реки - вода, горы - непроходимы, всё вне зон - суша.
-// Порядок - порядок отрисовки: сначала песок, вода и горы закрывают его середину.
-export const TERRAIN_ZONES: TerrainZone[] = [
-  ...WATER_ZONES.map((water) => shoreOf(water, SAND_WIDTH)),
-  ...WATER_ZONES,
-  ...MOUNTAINS_ZONES,
-]
+// зоны местности: озёра и реки - вода, горы - непроходимы, всё вне зон - суша
+export const TERRAIN_ZONES: TerrainZone[] = [...WATER_ZONES, ...MOUNTAINS_ZONES]
 
 // edgePx - зона у края экрана, где камера начинает двигаться
 export const CAMERA = { speedPxPerSecond: 500, edgePx: 80 }

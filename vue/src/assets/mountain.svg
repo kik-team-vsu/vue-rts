@@ -1,17 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">
-  <!--
-    Одна гора «2.5D» — гладкая пирамида в технике зданий из GameStaticObject, со снежной вершиной.
-    Текстура рисуется в координатах плоскости карты (div с transform: scaleY(0.5) rotate(45deg)),
-    поэтому «вертикаль экрана» здесь — диагональ плоскости: сдвиг (−d, −d), где d = sqrt(2) * высота_на_экране.
-    Пирамида с квадратным основанием (центр (cx, cy), полусторона h) и вершиной (cx−dp, cy−dp):
-      на экране видны две грани над ближними рёбрами основания —
-      светлая вдоль оси x: (cx−h,cy+h) (cx+h,cy+h) вершина;
-      тёмная вдоль оси y:  (cx+h,cy+h) (cx+h,cy−h) вершина.
-    Чтобы пик выступал над дальним углом основания, нужно dp > h.
-    Снежная шапка — подобная пирамида с тем же апексом, срезанная на доле t от вершины:
-      центр её основания (cx−dp+dp*t, cy−dp+dp*t), полусторона h*t.
-    Все фигуры не выходят за пределы 256x256, поэтому плитка бесшовно повторяется.
-  -->
+<svg xmlns="http://www.w3.org/2000/svg" width="250" height="250">
 
   <!-- каменистая земля вокруг горы -->
   <filter id="shadows" color-interpolation-filters="sRGB">
@@ -26,9 +13,9 @@
     <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="2" seed="13" stitchTiles="stitch"/>
     <feColorMatrix values="0 0 0 0 0.10  0 0 0 0 0.08  0 0 0 0 0.06  0 0 0 1.0 -0.36"/>
   </filter>
-  <rect width="256" height="256" filter="url(#shadows)"/>
-  <rect width="256" height="256" filter="url(#rock)"/>
-  <rect width="256" height="256" filter="url(#grain)"/>
+  <rect width="250" height="250" filter="url(#shadows)"/>
+  <rect width="250" height="250" filter="url(#rock)"/>
+  <rect width="250" height="250" filter="url(#grain)"/>
 
   <!-- гора: коричневая пирамида 172x172, высота на экране ~85 -->
   <g stroke="rgba(0, 0, 0, 0.55)" stroke-width="2" stroke-linejoin="round">
@@ -41,5 +28,5 @@
   </g>
 
   <!-- лёгкое зерно поверх горы, чтобы грани не выглядели плоскими -->
-  <rect width="256" height="256" filter="url(#grain)" opacity="0.3"/>
+  <rect width="250" height="250" filter="url(#grain)" opacity="0.3"/>
 </svg>

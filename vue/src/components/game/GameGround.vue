@@ -2,50 +2,103 @@
   <!-- земля карты: ромб с сеткой клеток -->
   <div class="ground" :style="groundStyle" />
 
-  <!-- зоны местности: тот же поворот и сжатие, что у земли -->
+  <!-- местность: горизонтальные ряды одинаковых клеток карты (суша не рисуется) -->
   <div
-      v-for="(zone, index) in terrainZones"
-      :key="'terrain-' + index"
+      v-for="run in terrainRuns"
+      :key="run.key"
       class="terrain-zone"
-      :class="zoneClass(zone)"
-      :style="zoneStyle(zone)" />
+      :class="'terrain-zone--' + run.cls"
+      :style="runStyle(run)" />
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { MAP } from '@/game/config'
-import type { TerrainZone } from '@/game/types'
+import { CELL_LAKE, CELL_MOUNTAIN, CELL_RIVER_H, CELL_RIVER_V, CELL_SAND, TERRAIN_COLS, TERRAIN_ROWS } from '@/game/terrain'
+import type { TerrainMap } from '@/game/terrain'
 
-// Земля и местность сценария: только рисует зоны из стора world
+// Плитка текстуры местности
+const TEXTURE_SIZE = 250
+
 const store = useStore()
-const terrainZones = computed<TerrainZone[]>(() => store.getters['world/getTerrainZones'])
 
 const groundStyle = {
   left: -MAP.width / 2 + 'px',
   top: -MAP.height / 2 + 'px',
   width: MAP.width + 'px',
   height: MAP.height + 'px',
-  backgroundSize: `${MAP.cell}px ${MAP.cell}px, ${MAP.cell}px ${MAP.cell}px, 256px 256px`,
+  backgroundSize: `${MAP.cell}px ${MAP.cell}px, ${MAP.cell}px ${MAP.cell}px, ${TEXTURE_SIZE}px ${TEXTURE_SIZE}px`,
 }
 
-// зона местности в мировых координатах.
-// Точка поворота - центр карты (мировой ноль), как у .ground, иначе зона съедет:
-// в локальных координатах зоны мировой ноль лежит в (-zone.x, -zone.y)
-const zoneStyle = (zone: TerrainZone) => ({
-  left: zone.x + 'px',
-  top: zone.y + 'px',
-  width: zone.width + 'px',
-  height: zone.height + 'px',
-  transformOrigin: `${-zone.x}px ${-zone.y}px`,
+// класс рендера по коду клетки: суша не рисуется - под ней видна трава земли
+const RUN_CLASS: Record<number, string> = {
+  [CELL_SAND]: 'sand',
+  [CELL_LAKE]: 'lake',
+  [CELL_RIVER_H]: 'river',
+  [CELL_RIVER_V]: 'river-v',
+  [CELL_MOUNTAIN]: 'mountain',
+}
+
+interface TerrainRun {
+  key: string
+  cls: string
+  col: number
+  row: number
+  cols: number
+  rows: number
+}
+
+// Прямоугольники одинаковых клеток: сначала ряды строки, затем соседние строки
+const terrainRuns = computed<TerrainRun[]>(() => {
+  const map: TerrainMap = store.getters['world/getTerrainMap']
+  const finished: TerrainRun[] = []
+  // открытые прямоугольники, продолжаемые в следующую строку: ключ cls:col:width
+  const open = new Map<string, TerrainRun>()
+  for (let row = 0; row < TERRAIN_ROWS; row++) {
+    let start = -1
+    let cls = ''
+    const extended = new Set<string>()
+    for (let col = 0; col <= TERRAIN_COLS; col++) {
+      const nextCls = col < TERRAIN_COLS ? RUN_CLASS[map.cells[row * TERRAIN_COLS + col]] ?? '' : ''
+      if (nextCls === cls) continue
+      if (start >= 0 && cls) {
+        const key = `${cls}:${start}:${col - start}`
+        extended.add(key)
+        const rect = open.get(key)
+        if (rect) {
+          rect.rows++
+        } else {
+          open.set(key, { key: `${key}:${row}`, cls, col: start, row, cols: col - start, rows: 1 })
+        }
+      }
+      start = col
+      cls = nextCls
+    }
+    for (const [key, rect] of open) {
+      if (!extended.has(key)) {
+        finished.push(rect)
+        open.delete(key)
+      }
+    }
+  }
+  for (const rect of open.values()) finished.push(rect)
+  return finished
 })
 
-// класс зоны: у реки течение вдоль длинной стороны зоны,
-// узкая и высокая зона получает плитку с вертикальным течением
-const zoneClass = (zone: TerrainZone) =>
-  zone.type === 'river' && zone.height > zone.width
-    ? 'terrain-zone--river-v'
-    : 'terrain-zone--' + zone.type
+// Прямоугольник в мировых координатах. Точка поворота - центр карты (мировой ноль)
+const runStyle = (run: TerrainRun) => {
+  const left = -MAP.width / 2 + run.col * MAP.cell
+  const top = -MAP.height / 2 + run.row * MAP.cell
+  return {
+    left: left + 'px',
+    top: top + 'px',
+    width: run.cols * MAP.cell + 'px',
+    height: run.rows * MAP.cell + 'px',
+    transformOrigin: `${-left}px ${-top}px`,
+    backgroundPosition: `${-(left + MAP.width / 2) % TEXTURE_SIZE}px ${-(top + MAP.height / 2) % TEXTURE_SIZE}px`,
+  }
+}
 </script>
 
 <style scoped lang="scss">
@@ -65,6 +118,7 @@ const zoneClass = (zone: TerrainZone) =>
 
 .terrain-zone {
   position: absolute;
+  background-size: 250px 250px;
 
   // как у .ground: ромбовидная зона в изометрии
   @include iso-flat;
@@ -75,7 +129,7 @@ const zoneClass = (zone: TerrainZone) =>
     background-image: url('../../assets/lake.svg');
   }
 
-  // река: та же вода, но плитка с полосами течения
+  // река: та же вода, но плитка с полосами течения вдоль оси x
   &--river {
     background-color: $water-color;
     background-image: url('../../assets/river.svg');
