@@ -1,3 +1,5 @@
+// Основные функции для поддержки местности и карты клеток
+
 import { MAP, OBJECT_TYPES } from './config'
 import { staticFootprint } from './spatial'
 import type { Footprint } from './spatial'

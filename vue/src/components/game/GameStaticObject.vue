@@ -1,13 +1,14 @@
+<!-- Компонент для отрисовки статических объектов (здания, деревья) -->
 <template>
   <div
       class="game-static-object"
-      :class="{ selected, constructing: construction !== null }"
+      :class="[{ 'game-static-object--selected': selected, 'game-static-object--constructing': construction !== null }, typeClass]"
       :style="style"
-      @mousedown.left.stop="() => pushEmit()">
-    <!-- здание или дерево: две ближние к камере стены и верх, затем крыша или ветки, если они есть у типа -->
-    <div class="face wall" :style="faces.leftWall" />
-    <div class="face wall dark" :style="faces.rightWall" />
-    <div class="face top" :class="deckClass" :style="faces.top" />
+      @mousedown.left.stop="() => pushEmit()"
+  >
+    <div class="game-static-object__wall game-static-object__wall--left" :style="faces.leftWall" />
+    <div class="game-static-object__wall game-static-object__wall--right" :style="faces.rightWall" />
+    <div class="game-static-object__top" :style="faces.top" />
     <Battlements v-if="type.roofHeight && type.roofType === 'battlements'" :type="type" />
     <PyramidRoof v-else-if="type.roofHeight" :type="type" />
     <TreeBranches v-if="type.branchColor" :type="type" />
@@ -53,20 +54,19 @@ const props = defineProps<{
 
 const store = useStore()
 
-// настил моста
-const deckClass = computed(() => (props.type.image ? `deck--${props.object.type}` : null))
+// модификатор типа на корне: у мостов с настилом верх получает рисунок досок
+const typeClass = computed(() => (props.type.image ? `game-static-object--${props.object.type}` : null))
 
-// что здание создаёт сейчас (null - ничего): полоска производства над полоской жизней
+// что здание создаёт сейчас: полоска производства над полоской жизней
 const production = computed<ProductionJob | null>(() => store.getters['world/getProductionByBuilding'](props.object.id))
 
-// строится ли здание сейчас (null - построено): полоска стройки на месте полоски производства
+// строится ли здание сейчас (null = построено): полоска стройки на месте полоски производства
 const construction = computed(() => store.getters['world/getConstructionByObject'](props.object.id))
 
 // событие для родителя (GameField): если на объект кликнули, его надо выбрать
 const emit = defineEmits<{ select: [] }>()
 const pushEmit = () => emit('select')
 
-// жизни есть только у зданий
 const maxHp = computed(() => ('maxHp' in props.type ? props.type.maxHp : null))
 
 // ширина полоски жизней на одну клетку размера здания: чем больше здание, тем шире полоска
@@ -98,7 +98,6 @@ const faces = computed(() => {
   const wallHeight = props.type.wallHeight ?? 0
   const left = worldToScreen({ x: -width / 2, y: height / 2 })
   const front = worldToScreen({ x: width / 2, y: height / 2 })
-  // matrix наклоняет стену вдоль стороны основания: по горизонтали как у земли, вертикаль остаётся вертикалью
   return {
     // стена вдоль оси x мира: от левого угла вправо-вниз к ближнему
     leftWall: {
@@ -118,7 +117,7 @@ const faces = computed(() => {
       backgroundColor: color,
       transform: `matrix(${ISO_SCALE}, ${-ISO_SCALE / 2}, 0, 1, 0, 0)`,
     },
-    // верх - основание, поднятое на высоту стен; у моста настил рисует класс deck--*
+    // верх - основание, поднятое на высоту стен; у моста настил рисует модификатор game-static-object--bridge
     top: {
       left: -width / 2 + 'px',
       top: -height / 2 - wallHeight + 'px',
@@ -132,41 +131,51 @@ const faces = computed(() => {
 
 <style scoped lang="scss">
 @use '@/assets/styles/mixins' as *;
-@use '@/assets/styles/iso-faces';
 
 .game-static-object {
   position: absolute;
   width: 0;
   height: 0;
   cursor: pointer;
-}
 
-// недостроенное здание полупрозрачно, как превью при выборе места;
-// полоски жизней и стройки при этом остаются яркими
-.constructing {
-  :deep(.face),
-  :deep(.slope),
-  :deep(.edge) {
-    opacity: 0.45;
+  // стены: скос изометрии, дальняя (правая) темнее
+  &__wall {
+    @include face('game-static-object');
+    @include wall;
+
+    &--right {
+      @include wall(true);
+    }
   }
-}
 
-// та же изометрия для ромбовидности
-.top {
-  @include iso-flat;
-}
+  // верх - основание, поднятое на высоту стен; изометрия для ромбовидности
+  &__top {
+    @include face('game-static-object');
+    @include iso-flat;
+  }
 
-// настил моста: доски
-.deck--bridge,
-.deck--bridge-vertical {
-  background-size: 100% 100%;
-}
+  // недостроенное здание полупрозрачно, как превью при выборе места
+  &--constructing {
+    .game-static-object__wall,
+    .game-static-object__top {
+      opacity: $ghost-opacity;
+    }
+  }
 
-.deck--bridge {
-  background-image: url('../../assets/bridge.svg');
-}
+  // настил моста: доски на всю площадь верха
+  &--bridge,
+  &--bridge-vertical {
+    .game-static-object__top {
+      background-size: 100% 100%;
+    }
+  }
 
-.deck--bridge-vertical {
-  background-image: url('../../assets/bridge-vertical.svg');
+  &--bridge .game-static-object__top {
+    background-image: url('../../assets/bridge.svg');
+  }
+
+  &--bridge-vertical .game-static-object__top {
+    background-image: url('../../assets/bridge-vertical.svg');
+  }
 }
 </style>

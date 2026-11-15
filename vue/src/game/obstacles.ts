@@ -1,3 +1,5 @@
+// Основные функции для поддержки обхода препятствий (зданий, непроходимых гор, воды - для сухопотных юнитов)
+
 import { OBJECT_TYPES } from './config'
 import { ISO_SCALE } from './coords'
 import { isAreaFree, isInsideMap, objectsSweepFree, squareFootprint, sweepFootprintsFree, unitFootprint } from './spatial'
@@ -74,8 +76,6 @@ export const isBlocked = (
 const HIDDEN_STEP = 5
 
 // Статическая часть проверки отрезка: статичные объекты, местность и зоны перекрытия.
-// Не зависит от юнитов и зарезервированных мест, поэтому вердикт для ребра сетки навигации
-// всегда одинаков - pathfinding кэширует его прямо в сетке
 export const isSegmentFreeStatic = (
   from: Point, to: Point, objects: readonly StaticObject[], margin: number, options: NavigationOptions = {},
 ): boolean => {

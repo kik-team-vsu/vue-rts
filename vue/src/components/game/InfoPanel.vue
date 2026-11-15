@@ -1,7 +1,8 @@
+<!-- Компонент для отрисоки информационной панели  -->
 <template>
   <div class="info-panel">
     <template v-if="selected">
-      <div class="name">{{ typeName }}</div>
+      <div class="info-panel__name">{{ typeName }}</div>
       <div>ID: {{ selected.id }}</div>
       <div>Координаты: {{ Math.round(selected.position.x) }}, {{ Math.round(selected.position.y) }}</div>
       <div>{{ groupName }}</div>
@@ -19,7 +20,7 @@
       </template>
     </template>
     <template v-else-if="selectedUnits.length > 1">
-      <div class="name">Выбрано юнитов: {{ selectedUnits.length }}</div>
+      <div class="info-panel__name">Выбрано юнитов: {{ selectedUnits.length }}</div>
       <div>ПКМ — отправить группу</div>
       <div>Shift + ПКМ — добавить точку в очередь</div>
       <div>Зажать ПКМ — вести за курсором</div>
@@ -146,9 +147,9 @@ const unitAction = computed(() => {
   color: $panel-text-color;
   border-radius: $panel-radius;
   pointer-events: none;
-}
 
-.name {
-  font-weight: bold;
+  &__name {
+    font-weight: bold;
+  }
 }
 </style>

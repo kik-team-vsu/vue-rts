@@ -1,3 +1,4 @@
+<!-- Компонент для превью постройки зданий -->
 <template>
   <div
       class="building-preview"
@@ -28,7 +29,6 @@ const props = defineProps<{
   group: number
 }>()
 
-// Модель рисуется относительно центра превью, её позиция локальная
 const object = computed<StaticObject>(() => ({
   id: 0, type: props.typeId, group: props.group, position: { x: 0, y: 0 },
 }))
@@ -53,7 +53,7 @@ const labelStyle = computed(() => ({
 
 .building-preview {
   position: absolute;
-  z-index: 10000;
+  z-index: $z-preview;
   color: $danger-color;
   pointer-events: none;
 
@@ -63,17 +63,19 @@ const labelStyle = computed(() => ({
 
   &__footprint {
     position: absolute;
-    box-sizing: border-box;
     border: 3px solid currentColor;
     background-color: color-mix(in srgb, currentColor 30%, transparent);
     background-image:
         linear-gradient(to right, currentColor 1px, transparent 1px),
         linear-gradient(to bottom, currentColor 1px, transparent 1px);
-    transform: scaleY(0.5) rotate(45deg);
+
+    // ромбовидный след на карте
+    @include iso-flat;
   }
 
+  // призрак постройки полупрозрачен, как недостроенное здание
   &__model {
-    opacity: 0.45;
+    opacity: $ghost-opacity;
   }
 
   &__label {

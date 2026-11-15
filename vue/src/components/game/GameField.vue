@@ -1,3 +1,4 @@
+<!-- Основной компонент игрового поля -->
 <template>
   <div
       ref="screenView"
@@ -11,10 +12,10 @@
       @mousemove="(event) => saveMouse(event)"
       @mouseleave="() => resetMouse()">
 
-    <div class="world" :style="worldStyle">
+    <div class="screen-view__world" :style="worldStyle">
       <GameGround />
 
-      <div class="objects-layer">
+      <div class="screen-view__layer screen-view__layer--objects">
         <!-- Уничтоженный объект не пропадает сразу, а проигрывает анимацию destroy -->
         <TransitionGroup name="destroy">
           <GameStaticObject
@@ -29,7 +30,7 @@
 
       <!-- Настилы мостов: отдельный слой между судами, проходящими под мостом,
            и юнитами на настиле (z-index слоёв - в стилях ниже) -->
-      <div class="bridges-layer">
+      <div class="screen-view__layer screen-view__layer--bridges">
         <TransitionGroup name="destroy">
           <GameStaticObject
               v-for="o in bridges"
@@ -48,7 +49,7 @@
       <div
           v-for="attack in attacks"
           :key="'attack-line-' + attack.id"
-          class="attack-line"
+          class="screen-view__attack-line"
           :style="attack.lineStyle" />
 
       <TransitionGroup name="destroy">
@@ -64,7 +65,7 @@
       <div
           v-for="attack in attacks"
           :key="'attack-mark-' + attack.id"
-          class="attack-mark"
+          class="screen-view__attack-mark"
           :style="attack.markStyle" />
 
       <BuildingPreview
@@ -77,7 +78,7 @@
 
     <div
         v-if="selectionBox"
-        class="selection-box"
+        class="screen-view__selection-box"
         :style="selectionBoxStyle" />
   </div>
 </template>
@@ -115,7 +116,7 @@ let dragLast: Point = { x: 0, y: 0 }
 // Игровой логики здесь нет: элементы карты, события и камера живут в сторе, а рисуют их дочерние компоненты.
 // Объекты и юниты передаются пропсами: уничтоженный объект ещё проигрывает анимацию destroy со своими последними данными
 const store = useStore()
-// Объекты по слоям: мосты рисуются своим слоем выше судов под настилом (см. .bridges-layer)
+// Объекты по слоям: мосты рисуются своим слоем выше судов под настилом (см. screen-view__layer--bridges)
 const staticObjects = computed<StaticObject[]>(() =>
     store.getters['world/getObjects'].filter((o: StaticObject) => !OBJECT_TYPES[o.type]?.passable))
 const bridges = computed<StaticObject[]>(() =>
@@ -133,7 +134,6 @@ const isRunning = computed<boolean>(() => store.getters['game/isRunning'])
 const screenView = ref<HTMLElement | null>(null)
 // Камера живёт в сторе camera, игровой цикл - в сторе engine
 const camera = computed<Point>(() => store.getters['camera/getPosition'])
-// Положение курсора внутри окна игры
 const mouse = { x: 0, y: 0 }
 let mouseInside = false
 const resizeObserver = new ResizeObserver(([entry]) => {
@@ -153,7 +153,6 @@ const selectionBox = ref<Box | null>(null)
 const worldStyle = computed(() => ({
   transform: `translate(${-camera.value.x}px, ${-camera.value.y}px)`,
 }))
-
 
 // Кто кого атакует: линия от атакующего к цели и кольцо на цели (цель - юнит или здание).
 // Цели может уже не быть - тогда атакующий скоро выйдет из режима атаки
@@ -205,7 +204,7 @@ const toWorld = (e: MouseEvent): Point => {
   })
 }
 
-// Курсор у края экрана двигает камеру: сообщаем стору направление, сдвиг считает игровой цикл
+// Курсор у края экрана двигает камеру
 const updateEdgeScroll = () => {
   const view = screenView.value
   if (!view || dragging || !mouseInside) {
@@ -228,7 +227,6 @@ const updateEdgeScroll = () => {
 }
 
 const saveMouse = (e: MouseEvent) => {
-  // Окно ввода на странице и его размер
   const rect = screenView.value!.getBoundingClientRect()
   mouse.x = e.clientX - rect.left
   mouse.y = e.clientY - rect.top
@@ -268,7 +266,9 @@ const startFollow = (e: MouseEvent) => {
 
 // Курсор двигается с зажатой ПКМ: переносим точку последнего приказа (force - без ограничения частоты)
 const follow = (e: MouseEvent, force = false) => {
-  if (buildingType.value) following = false
+  if (buildingType.value) {
+    following = false
+  }
   if (!following) {
     return
   }
@@ -284,8 +284,9 @@ const follow = (e: MouseEvent, force = false) => {
 }
 
 const placeBuilding = (e: MouseEvent) => {
-  if (!buildingType.value) return
-  // Перехватываем клик до выбора дочернего объекта и начала рамки
+  if (!buildingType.value) {
+    return
+  }
   e.stopImmediatePropagation()
   e.preventDefault()
   selectStart = null
@@ -326,7 +327,6 @@ const isBigEnough = (box: Box) => box.width > MIN_SELECTION_PX || box.height > M
 
 // Левая кнопка на пустом месте: начинаем тянуть рамку (клик по объекту сюда не доходит, там stop)
 const startSelect = (e: MouseEvent) => {
-  // В меню и после конца игры рамку не рисуем
   if (!isRunning.value) {
     return
   }
@@ -335,7 +335,6 @@ const startSelect = (e: MouseEvent) => {
   selectAdditive = e.shiftKey
 }
 
-// Рамка на экране обновляется при движении мыши
 const updateSelectionBox = () => {
   if (!selectStart) {
     return
@@ -353,7 +352,6 @@ const finishSelect = () => {
   selectionBox.value = null
 
   if (!isBigEnough(box)) {
-    // Клик с shift по пустому месту не сбрасывает выбор
     if (!selectAdditive) {
       select(null)
     }
@@ -395,7 +393,6 @@ const onWindowMouseUp = (e: MouseEvent) => {
     dragging = false
   }
   if (e.button === 2 && following) {
-    // ПКМ отпущена: точка под курсором становится конечной
     follow(e, true)
     following = false
   }
@@ -432,34 +429,62 @@ onUnmounted(() => {
   overflow: hidden;
   background: $field-background;
   user-select: none;
+
+  &__world {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0;
+    height: 0;
+    will-change: transform;
+  }
+
+  // Слои карты: объекты и юниты в глубине, настилы мостов - над судами под мостом
+  &__layer {
+    position: absolute;
+
+    &--objects {
+      z-index: $z-objects;
+    }
+
+    &--bridges {
+      z-index: $z-bridges;
+    }
+  }
+
+  // Кто кого атакует: линия от атакующего к цели
+  &__attack-line {
+    z-index: $z-orders;
+    transform-origin: left center;
+    pointer-events: none;
+    animation: attack-pulse 1s ease-in-out infinite;
+
+    @include line(solid, rgba($danger-color, 0.85));
+  }
+
+  // Кольцо атаки на цели
+  &__attack-mark {
+    z-index: $z-orders;
+
+    @include target-mark(rgba($danger-color, 0.9));
+  }
+
+  // Рамка выделения юнитов
+  &__selection-box {
+    position: absolute;
+    border: 1px solid $selected-color;
+    background: rgba($selected-color, 0.15);
+    pointer-events: none;
+  }
 }
 
+// Пауза замораживает анимации всех вложенных компонентов
 .screen-view--paused :deep(*) {
-  // На паузе анимация стоит
   animation-play-state: paused !important;
 }
 
-.world {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 0;
-  height: 0;
-  will-change: transform;
-}
-
-.objects-layer {
-  position: absolute;
-  z-index: 0;
-}
-
-// Настил моста: выше судов под ним (z-index 1 в GameUnit) и ниже юнитов на настиле
-.bridges-layer {
-  position: absolute;
-  z-index: 2;
-}
-
-// Уничтожение: объект сжимается к основанию и исчезает
+// Классы Vue-перехода TransitionGroup name="destroy" - единственное исключение
+// из БЭМ-именования: имена генерирует сам Vue
 .destroy-leave-active {
   animation: destroy 0.4s ease-in forwards;
   transform-origin: bottom center;
@@ -477,19 +502,6 @@ onUnmounted(() => {
   }
 }
 
-// Атака: сплошная красная линия пульсирует, пока идёт бой
-// (z-index выше настила моста: линия видна и над мостом)
-.attack-line {
-  position: absolute;
-  z-index: 3;
-  height: 0;
-  margin-top: -1px;
-  border-top: 2px solid rgba(220, 38, 38, 0.85);
-  transform-origin: left center;
-  pointer-events: none;
-  animation: attack-pulse 1s ease-in-out infinite;
-}
-
 @keyframes attack-pulse {
   0%,
   100% {
@@ -499,24 +511,5 @@ onUnmounted(() => {
   50% {
     opacity: 0.4;
   }
-}
-
-.selection-box {
-  position: absolute;
-  border: 1px solid $selected-color;
-  background: rgba($selected-color, 0.15);
-  pointer-events: none;
-}
-
-// Кольцо на цели атаки: тот же эллипс в плоскости карты, что и target-mark
-.attack-mark {
-  position: absolute;
-  z-index: 3;
-  width: 16px;
-  height: 8px;
-  margin: -4px 0 0 -8px;
-  border: 2px solid rgba(220, 38, 38, 0.9);
-  border-radius: 50%;
-  pointer-events: none;
 }
 </style>

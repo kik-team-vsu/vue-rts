@@ -1,3 +1,4 @@
+<!-- Компонент для отрисовки Панели Команд -->
 <template>
   <div
       v-if="isRunning"
@@ -86,8 +87,7 @@ const isBuildingAtLimit = (typeId: string) => {
 const selectedUnits = computed(() => store.getters['selection/getSelectedUnits'])
 const selected = computed<StaticObject | Unit | null>(() => store.getters['selection/getSelected'])
 
-// Задание производства выбранного здания (null - здание сейчас ничего не создаёт):
-// Пока идёт, кнопки спавна заблокированы, на кнопке создаваемого юнита растёт заливка
+// Задание производства выбранного здания
 const production = computed<ProductionJob | null>(() => {
   const building = selected.value
   if (!building) {
@@ -97,7 +97,7 @@ const production = computed<ProductionJob | null>(() => {
 })
 const isProducing = computed(() => production.value !== null)
 
-// Недостроенное здание пока не создаёт юнитов: кнопки спавна заблокированы до конца стройки
+// Недостроенное здание пока не создаёт юнитов. Кнопки спавна заблокированы до конца стройки
 const isConstructing = computed(() => {
   const building = selected.value
   return building !== null && store.getters['world/getConstructionByObject'](building.id) !== null
@@ -110,7 +110,7 @@ const progressPercent = computed(() => {
   return Math.floor(Math.min(1, job.elapsed / job.duration) * 100)
 })
 
-// Сколько юнитов этого типа уже живо у группы выбранного здания: у каждой группы свой лимит
+// Сколько юнитов этого типа уже живо у группы выбранного здания
 const unitCount = (unitType?: string) => {
   const building = selected.value
   if (!building || unitType === undefined) {
@@ -119,7 +119,6 @@ const unitCount = (unitType?: string) => {
   return store.getters['world/countUnitsOfType'](building.group, unitType)
 }
 
-// Лимит юнитов этого типа у группы достигнут: кнопку спавна блокируем
 const isAtLimit = (unitType?: string) =>
     unitType !== undefined && unitCount(unitType) >= UNIT_TYPES[unitType].maxPerGroup
 
@@ -134,7 +133,7 @@ const buttonLabel = (command: Command) => {
   return `${command.label} (${unitCount(command.payload)}/${UNIT_TYPES[command.payload].maxPerGroup})`
 }
 
-// Кнопки спавна выбранного здания: по одной на каждый тип юнита из spawns
+// Кнопки спавна выбранного здания: по одной на каждый тип юнита
 const spawnCommands = computed<Command[]>(() => {
   const building = selected.value
   if (!building || !(building.type in OBJECT_TYPES)) {
@@ -151,7 +150,6 @@ const spawnCommands = computed<Command[]>(() => {
 })
 
 const commands = computed<Command[]>(() => {
-  // В меню и после конца игры кнопок нет
   if (!isRunning.value) {
     return []
   }
@@ -258,11 +256,10 @@ const run = (command: Command) => {
     }
 
     &--cancel {
-      background: #475569;
+      background: $cancel-button-background;
     }
   }
 
-  // Заливка готовности прямо на кнопке создаваемого юнита
   &__progress {
     position: absolute;
     left: 0;
@@ -272,7 +269,6 @@ const run = (command: Command) => {
     pointer-events: none;
   }
 
-  // Подпись над заливкой прогресса
   &__label {
     position: relative;
   }

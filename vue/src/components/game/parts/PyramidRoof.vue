@@ -1,3 +1,4 @@
+<!-- Компонент для отрисовки крыши в виде пирамиды для статичных объектов -->
 <template>
   <div
       v-for="(part, index) in parts"
@@ -11,7 +12,6 @@ import { computed } from 'vue'
 import { worldToScreen } from '@/game/coords'
 import type { ObjectType, Point } from '@/game/types'
 
-// крыша-пирамида над стенами статичного объекта
 const props = defineProps<{
   type: ObjectType
 }>()
@@ -30,7 +30,6 @@ const polygon = (points: Point[], color: string, brightness: number) => {
   }
 }
 
-// ребро крыши
 const edge = (from: Point, to: Point) => {
   const dx = to.x - from.x
   const dy = to.y - from.y
@@ -54,8 +53,8 @@ const parts = computed(() => {
   const front = corner(width / 2, height / 2)
   const peak = { x: 0, y: -wallHeight - roofHeight }
   const fill = roofColor ?? color
-  const slopes = (...styles: object[]) => styles.map((style) => ({ class: 'slope', style }))
-  const edges = (...styles: object[]) => styles.map((style) => ({ class: 'edge', style }))
+  const slopes = (...styles: object[]) => styles.map((style) => ({ class: 'pyramid-roof__slope', style }))
+  const edges = (...styles: object[]) => styles.map((style) => ({ class: 'pyramid-roof__edge', style }))
   return [
     ...slopes(polygon([back, left, peak], fill, 0.8), polygon([back, right, peak], fill, 0.6)),
     ...edges(edge(back, left), edge(back, right), edge(back, peak)),
@@ -68,15 +67,21 @@ const parts = computed(() => {
 <style scoped lang="scss">
 @use '@/assets/styles/mixins' as *;
 
-// скат крыши
-.slope {
-  position: absolute;
-}
+.pyramid-roof {
+  // склоны и рёбра - прямые дети корня game-static-object:
+  // выделение и стройку ловят селекторы по родителю внутри миксинов
+  &__slope {
+    position: absolute;
 
-.edge {
-  transform-origin: 0 50%;
+    @include when-state('game-static-object', 'constructing', opacity, $ghost-opacity);
+  }
 
-  @include line;
-  @include when-selected(border-color);
+  &__edge {
+    transform-origin: 0 50%;
+
+    @include line;
+    @include when-selected('game-static-object', border-color);
+    @include when-state('game-static-object', 'constructing', opacity, $ghost-opacity);
+  }
 }
 </style>

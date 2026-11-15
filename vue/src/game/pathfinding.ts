@@ -1,3 +1,5 @@
+// Основные функции для поддержки поиска пути
+
 import { isBlocked, isSegmentFreeStatic, isSweepBlockersFree } from './obstacles'
 import type { NavigationOptions } from './obstacles'
 import {

@@ -1,3 +1,4 @@
+<!-- Основная страница игры -->
 <template>
   <div class="game-page">
     <GameField />

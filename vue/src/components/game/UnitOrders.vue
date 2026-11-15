@@ -1,13 +1,16 @@
-﻿<template>
-  <!-- очереди приказов выбранных юнитов: путь от юнита через все точки очереди и метка в каждой точке -->
+<!-- Компонент для поддержки очереди приказов выбранных юнитов  -->
+<template>
   <template v-for="order in orders" :key="order.id">
     <div
         v-for="(style, index) in order.pathStyles"
         :key="index"
-        class="path-line"
-        :class="{ queued: order.queued }"
+        class="unit-orders__path-line"
+        :class="{ 'unit-orders__path-line--queued': order.queued }"
         :style="style" />
-    <div class="target-mark" :class="{ queued: order.queued }" :style="order.targetStyle" />
+    <div
+        class="unit-orders__target-mark"
+        :class="{ 'unit-orders__target-mark--queued': order.queued }"
+        :style="order.targetStyle" />
   </template>
 </template>
 
@@ -72,29 +75,29 @@ const orders = computed(() => {
 <style scoped lang="scss">
 @use '@/assets/styles/mixins' as *;
 
-.path-line {
-  transform-origin: left center;
-  pointer-events: none;
+.unit-orders {
+  &__path-line {
+    transform-origin: left center;
+    pointer-events: none;
+    z-index: $z-orders;
 
-  // путь виден над настилом моста (слой мостов - z-index 2 в GameField)
-  z-index: 3;
+    @include line(dashed, rgba($selected-color, 0.7));
 
-  @include line(dashed, rgba($selected-color, 0.7));
-}
+    // следующие точки очереди бледнее текущей
+    &--queued {
+      opacity: 0.5;
+    }
+  }
 
-.target-mark {
-  position: absolute;
-  z-index: 3;
-  width: 16px;
-  height: 8px;
-  margin: -4px 0 0 -8px;
-  border: $outline-width solid $selected-color;
-  border-radius: 50%;
-  pointer-events: none;
-}
+  &__target-mark {
+    z-index: $z-orders;
 
-// следующие точки очереди бледнее текущей
-.queued {
-  opacity: 0.5;
+    @include target-mark($selected-color);
+
+    // следующие точки очереди бледнее текущей
+    &--queued {
+      opacity: 0.5;
+    }
+  }
 }
 </style>

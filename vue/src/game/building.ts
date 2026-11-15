@@ -1,3 +1,5 @@
+// Общая логика для действий со зданием
+
 import { MAP, OBJECT_TYPES } from './config'
 import { isAreaFree, isInsideMap, overlaps, staticFootprint } from './spatial'
 import type { CollisionWorld, Footprint } from './spatial'

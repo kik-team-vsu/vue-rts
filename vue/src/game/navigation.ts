@@ -1,3 +1,5 @@
+// Основные функции для поддержки логики навигации
+
 import { MAP, OBJECT_TYPES } from './config'
 import { ISO_SCALE } from './coords'
 import { isInsideMap, SEARCH_STEP, squareFootprint, staticFootprint } from './spatial'
@@ -113,7 +115,9 @@ const buildGrid = (
   for (const object of objects) {
     // Проходимые объекты (мосты) не закрашиваем: по настилу ходят,
     // воду под ним делает проходимой bridgesOf в проверке местности ниже
-    if (OBJECT_TYPES[object.type]?.passable) continue
+    if (OBJECT_TYPES[object.type]?.passable) {
+      continue
+    }
     paintArea(grid.blocked, grid.near, staticFootprint(object), margin)
     paintHidden(grid.hidden, grid.near, object, margin)
   }

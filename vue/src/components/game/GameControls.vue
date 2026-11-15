@@ -1,3 +1,4 @@
+<!-- Компонент для конроля прогресса игры (выграла ли какая-то групаа, игра на паузе или нет) -->
 <template>
   <div class="game-controls">
     <div v-if="!started" class="game-controls__banner game-controls__banner--menu">
@@ -59,7 +60,6 @@ const openMenu = () => {
   store.dispatch('game/openMenu')
 }
 
-// пауза на пробел
 const onKeyDown = (e: KeyboardEvent) => {
   if (e.code === 'Space' && !e.repeat && started.value && !isGameOver.value) {
     e.preventDefault()
