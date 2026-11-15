@@ -1,7 +1,7 @@
 <!-- Компонент для отрисоки полоски жизней  -->
 <template>
   <div class="hp-bar" :style="barStyle">
-    <div class="hp-fill" :style="fillStyle" />
+    <div class="hp-bar__fill" :style="fillStyle" />
   </div>
 </template>
 
@@ -44,16 +44,10 @@ const fillStyle = computed(() => {
 @use '@/assets/styles/mixins' as *;
 
 .hp-bar {
-  position: absolute;
-  left: 50%;
-  height: 6px;
-  box-sizing: border-box;
-  border: $outline-width solid $outline-color;
-  background: $hp-bar-background;
-  transform: translateX(-50%);
-}
+  @include status-bar;
 
-.hp-fill {
-  height: 100%;
+  &__fill {
+    height: 100%;
+  }
 }
 </style>

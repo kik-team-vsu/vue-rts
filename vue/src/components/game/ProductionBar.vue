@@ -1,7 +1,7 @@
 <!-- Компонент для отрисоки процесса производства юнита  -->
 <template>
   <div class="production-bar" :style="barStyle">
-    <div class="production-fill" :style="fillStyle" />
+    <div class="production-bar__fill" :style="fillStyle" />
   </div>
 </template>
 
@@ -31,17 +31,11 @@ const fillStyle = computed(() => ({
 @use '@/assets/styles/mixins' as *;
 
 .production-bar {
-  position: absolute;
-  left: 50%;
-  height: 6px;
-  box-sizing: border-box;
-  border: $outline-width solid $outline-color;
-  background: $hp-bar-background;
-  transform: translateX(-50%);
-}
+  @include status-bar;
 
-.production-fill {
-  height: 100%;
-  background: $action-color;
+  &__fill {
+    height: 100%;
+    background: $action-color;
+  }
 }
 </style>

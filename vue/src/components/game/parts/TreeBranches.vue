@@ -3,7 +3,7 @@
   <div
       v-for="(branch, index) in branches"
       :key="'branch' + index"
-      class="branch"
+      class="tree-branches__branch"
       :style="branch" />
 </template>
 
@@ -41,15 +41,17 @@ const branches = computed(() => {
 <style scoped lang="scss">
 @use '@/assets/styles/mixins' as *;
 
-.branch {
-  position: absolute;
-  left: 0;
-  height: 4px;
-  margin-top: -2px;
-  border-radius: 2px;
-  transform-origin: 0 50%;
+.tree-branches {
+  &__branch {
+    position: absolute;
+    left: 0;
+    height: 4px;
+    margin-top: -2px;
+    border-radius: 2px;
+    transform-origin: 0 50%;
 
-  // для выделения веток
-  @include when-selected(box-shadow, 0 0 0 $outline-width $selected-color);
+    // ветки - прямые дети корня game-static-object, выделение ловит селектор по родителю
+    @include when-selected('game-static-object', box-shadow, 0 0 0 $outline-width $selected-color);
+  }
 }
 </style>

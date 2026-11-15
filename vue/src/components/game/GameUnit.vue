@@ -2,23 +2,23 @@
 <template>
   <div
       class="game-unit"
-      :class="[`shape-${shape}`, { selected, walking, attacking }]"
+      :class="[shapeClass, { 'game-unit--selected': selected, 'game-unit--walking': walking, 'game-unit--attacking': attacking }]"
       :style="style"
       @mousedown.left.stop="(event) => pushEmit(event)">
     <!-- плавающие суда стоят прямо в воде: у них нет тени на воде -->
-    <div v-if="shape === 'human'" class="shadow" />
+    <div v-if="shape === 'human'" class="game-unit__shadow" />
 
     <!-- пеший юнит: человечек из css-фигур, стоит ногами в точке position -->
     <template v-if="shape === 'human'">
-      <div class="leg left" />
-      <div class="leg right" />
-      <div class="body" :style="{ backgroundColor: type.color }" />
-      <div class="arm left" />
+      <div class="game-unit__leg game-unit__leg--left" />
+      <div class="game-unit__leg game-unit__leg--right" />
+      <div class="game-unit__body" :style="{ backgroundColor: type.color }" />
+      <div class="game-unit__arm game-unit__arm--left" />
       <!-- в правой руке топор: этой рукой юнит бьёт -->
-      <div class="arm right">
-        <div class="axe" />
+      <div class="game-unit__arm game-unit__arm--right">
+        <div class="game-unit__axe" />
       </div>
-      <div class="head" :style="{ backgroundColor: type.color }" />
+      <div class="game-unit__head" :style="{ backgroundColor: type.color }" />
     </template>
 
     <!--
@@ -27,8 +27,8 @@
       Курс хранится в мировых радианах (unit.facing), поэтому кадров на 4 стороны нет:
       корпус плавно поворачивается по направлению движения
     -->
-    <div v-else class="vessel" :style="anchorStyle">
-      <svg class="deck" :viewBox="viewBox" :width="vesselSize" :height="vesselSize" :style="deckStyle">
+    <div v-else class="game-unit__vessel" :style="anchorStyle">
+      <svg class="game-unit__deck" :viewBox="viewBox" :width="vesselSize" :height="vesselSize" :style="deckStyle">
         <!-- борт под палубой: тот же силуэт, сдвинутый вниз по экрану -->
         <polygon :points="hullPoints('keel')" :fill="keelColor" />
 
@@ -71,14 +71,14 @@
       </svg>
 
       <!-- вертикальные части стоят в проекции своей точки палубы, но не наклоняются -->
-      <div class="upright" :style="uprightStyle">
+      <div class="game-unit__upright" :style="uprightStyle">
         <template v-if="shape === 'warship'">
-          <div class="smoke" :class="{ moving: walking }" />
-          <div class="stack" />
+          <div class="game-unit__smoke" :class="{ 'game-unit__smoke--moving': walking }" />
+          <div class="game-unit__stack" />
         </template>
         <template v-else>
-          <div class="flag" :style="{ backgroundColor: groupColor(unit.group) }" />
-          <div class="mast" />
+          <div class="game-unit__flag" :style="{ backgroundColor: groupColor(unit.group) }" />
+          <div class="game-unit__mast" />
         </template>
       </div>
     </div>
@@ -129,6 +129,9 @@ const strikePeriod = computed(() => (props.type.attackSpeed > 0 ? 1 / props.type
 
 // Как рисовать юнит: по умолчанию человечек, у лодок и кораблей - свой силуэт
 const shape = computed(() => props.type.shape ?? 'human')
+
+// модификатор формы на корне: анимации судов вешаются на класс game-unit--boat/--warship
+const shapeClass = computed(() => (shape.value === 'human' ? null : `game-unit--${shape.value}`))
 
 // Полоска жизней у больших кораблей шире, у пехоты остаётся прежней
 const barWidth = computed(() => Math.round(Math.min(84, Math.max(36, props.type.width * 0.6))))
@@ -262,87 +265,182 @@ $leg-step: 25deg;
 .game-unit {
   position: absolute;
   cursor: pointer;
-}
 
-.shadow {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 100%;
-  aspect-ratio: 2 / 1;
-  border-radius: 50%;
-  background: $shadow-color;
-  transform: translateY(50%);
-}
-
-.leg {
-  bottom: 0;
-
-  @include limb(32%);
-
-  &.left {
-    left: 25%;
-    --step-a: #{$leg-step};
-    --step-b: #{-$leg-step};
-  }
-
-  &.right {
-    right: 25%;
-    --step-a: #{-$leg-step};
-    --step-b: #{$leg-step};
-  }
-}
-
-// Руки вращаются вокруг плеч
-.arm {
-  top: 34%;
-
-  @include limb(34%);
-
-  &.left {
-    left: 0;
-    transform: rotate(25deg);
-    --step-a: 5deg;
-    --step-b: 50deg;
-  }
-
-  &.right {
-    right: 0;
-    transform: rotate(-25deg);
-    --step-a: -50deg;
-    --step-b: -5deg;
-  }
-}
-
-// Топор в правой руке: рукоять из-под кулака, лезвие у конца.
-// Рука вращается вокруг плеча - топор идёт по дуге удара
-.axe {
-  position: absolute;
-  left: 0;
-  bottom: -8px;
-  width: 4px;
-  height: 15px;
-  border-radius: 2px;
-  background: #7c4a1e;
-
-  // лезвие: стальной полумесяц, режущая кромка наружу от тела -
-  // она ведёт взмах, когда рука бьёт поперёк тела
-  &::after {
-    content: '';
+  &__shadow {
     position: absolute;
-    left: -7px;
-    bottom: -1px;
-    width: 9px;
-    height: 8px;
-    border-radius: 70% 20% 20% 70%;
-    background: linear-gradient(to right, #e5e7eb, #9ca3af);
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    aspect-ratio: 2 / 1;
+    border-radius: 50%;
+    background: $shadow-color;
+    transform: translateY(50%);
+  }
+
+  &__leg {
+    bottom: 0;
+
+    @include limb('game-unit', 32%);
+
+    &--left {
+      left: 25%;
+      --step-a: #{$leg-step};
+      --step-b: #{-$leg-step};
+    }
+
+    &--right {
+      right: 25%;
+      --step-a: #{-$leg-step};
+      --step-b: #{$leg-step};
+    }
+  }
+
+  // Руки вращаются вокруг плеч
+  &__arm {
+    top: 34%;
+
+    @include limb('game-unit', 34%);
+
+    &--left {
+      left: 0;
+      transform: rotate(25deg);
+      --step-a: 5deg;
+      --step-b: 50deg;
+    }
+
+    &--right {
+      right: 0;
+      transform: rotate(-25deg);
+      --step-a: -50deg;
+      --step-b: -5deg;
+    }
+  }
+
+  // Топор в правой руке: рукоять из-под кулака, лезвие у конца.
+  // Рука вращается вокруг плеча - топор идёт по дуге удара
+  &__axe {
+    position: absolute;
+    left: 0;
+    bottom: -8px;
+    width: 4px;
+    height: 15px;
+    border-radius: 2px;
+    background: #7c4a1e;
+
+    // лезвие: стальной полумесяц, режущая кромка наружу от тела -
+    // она ведёт взмах, когда рука бьёт поперёк тела
+    &::after {
+      content: '';
+      position: absolute;
+      left: -7px;
+      bottom: -1px;
+      width: 9px;
+      height: 8px;
+      border-radius: 70% 20% 20% 70%;
+      background: linear-gradient(to right, #e5e7eb, #9ca3af);
+    }
+  }
+
+  &__body,
+  &__head {
+    position: absolute;
+    background-image: radial-gradient(
+      circle at 35% 28%,
+      rgba($selected-color, 0.6) 0%,
+      rgba($selected-color, 0) 40%,
+      rgba($outline-color, 0.4) 100%
+    );
+
+    @include outlined('game-unit', 50%);
+  }
+
+  &__body {
+    left: 0;
+    top: 26%;
+    width: 100%;
+    height: 50%;
+  }
+
+  &__head {
+    left: 22%;
+    top: 0;
+    width: 56%;
+    aspect-ratio: 1;
+  }
+
+  // Судно: корпус лежит в плоскости воды.
+  // Рисунок прозрачен для мыши: клики ловит рамка юнита, иначе большой svg
+  // перехватывал бы нажатия у соседних юнитов
+  &__vessel {
+    pointer-events: none;
+  }
+
+  &__deck {
+    overflow: visible;
+  }
+
+  // Мачта лодки: вертикальная стойка с флагом цвета группы
+  &__mast {
+    width: 2px;
+    height: 34px;
+    margin-left: -1px;
+    background: #3f2a14;
+  }
+
+  &__flag {
+    position: absolute;
+    left: 1px;
+    bottom: 34px;
+    width: 14px;
+    height: 10px;
+    clip-path: polygon(0 0, 100% 0, 60% 50%, 100% 100%, 0 100%);
+    box-shadow: 0 0 0 1px rgba($outline-color, 0.5);
+  }
+
+  // Труба корабля: вертикальный цилиндр и дым над ним
+  &__stack {
+    width: 12px;
+    height: 30px;
+    margin-left: -6px;
+    border: 1px solid rgba($outline-color, 0.6);
+    border-top: 4px solid #111827;
+    border-radius: 3px 3px 0 0;
+    background: linear-gradient(to right, #374151, #9ca3af, #374151);
+  }
+
+  &__smoke {
+    position: absolute;
+    left: 4px;
+    bottom: 30px;
+    width: 26px;
+    height: 16px;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(220, 220, 220, 0.75), rgba(220, 220, 220, 0));
+    opacity: 0.45;
+
+    // дым идёт, пока корабль на ходу
+    &--moving {
+      animation: drift 2.4s ease-out infinite;
+    }
+  }
+
+  // Ходьба из двух кадров
+  &--walking > &__leg,
+  &--walking > &__arm {
+    animation: walk 0.4s steps(1) infinite;
+  }
+
+  // Удар пешего: замах правой рукой наружу и взмах поперёк тела,
+  // темп - период из attackSpeed юнита
+  &--attacking > &__arm--right {
+    animation: strike var(--strike-period, 1s) ease-in-out infinite;
   }
 }
 
-// Ходьба из двух кадров
-.walking > .leg,
-.walking > .arm {
-  animation: walk 0.4s steps(1) infinite;
+// Качка судна на ходу: корпус плавно покачивается
+.game-unit--boat.game-unit--walking .game-unit__deck,
+.game-unit--warship.game-unit--walking .game-unit__deck {
+  animation: bob 2.2s ease-in-out infinite;
 }
 
 @keyframes walk {
@@ -353,12 +451,6 @@ $leg-step: 25deg;
   50% {
     transform: rotate(var(--step-b));
   }
-}
-
-// Удар пешего: замах правой рукой наружу и взмах поперёк тела,
-// темп - период из attackSpeed юнита
-.attacking > .arm.right {
-  animation: strike var(--strike-period, 1s) ease-in-out infinite;
 }
 
 @keyframes strike {
@@ -377,49 +469,6 @@ $leg-step: 25deg;
   }
 }
 
-.body,
-.head {
-  position: absolute;
-  background-image: radial-gradient(
-    circle at 35% 28%,
-    rgba($selected-color, 0.6) 0%,
-    rgba($selected-color, 0) 40%,
-    rgba($outline-color, 0.4) 100%
-  );
-
-  @include outlined(50%);
-}
-
-.body {
-  left: 0;
-  top: 26%;
-  width: 100%;
-  height: 50%;
-}
-
-.head {
-  left: 22%;
-  top: 0;
-  width: 56%;
-  aspect-ratio: 1;
-}
-
-// Судно: корпус лежит в плоскости воды, качается на ходу.
-// Рисунок прозрачен для мыши: клики ловит рамка юнита, иначе большой svg
-// перехватывал бы нажатия у соседних юнитов
-.vessel {
-  pointer-events: none;
-
-  .deck {
-    overflow: visible;
-  }
-}
-
-.shape-boat.walking .deck,
-.shape-warship.walking .deck {
-  animation: bob 2.2s ease-in-out infinite;
-}
-
 @keyframes bob {
   0%,
   100% {
@@ -432,8 +481,8 @@ $leg-step: 25deg;
 }
 
 // Выстрел судна: короткая отдача корпуса в такт ударам
-.shape-boat.attacking .deck,
-.shape-warship.attacking .deck {
+.game-unit--boat.game-unit--attacking .game-unit__deck,
+.game-unit--warship.game-unit--attacking .game-unit__deck {
   animation: recoil var(--strike-period, 1s) ease-out infinite;
 }
 
@@ -445,50 +494,6 @@ $leg-step: 25deg;
 
   12% {
     transform: translate(-50%, -50%) translateY(2px) rotate(1.2deg);
-  }
-}
-
-// Мачта лодки: вертикальная стойка с флагом цвета группы
-.mast {
-  width: 2px;
-  height: 34px;
-  margin-left: -1px;
-  background: #3f2a14;
-}
-
-.flag {
-  position: absolute;
-  left: 1px;
-  bottom: 34px;
-  width: 14px;
-  height: 10px;
-  clip-path: polygon(0 0, 100% 0, 60% 50%, 100% 100%, 0 100%);
-  box-shadow: 0 0 0 1px rgba($outline-color, 0.5);
-}
-
-// Труба корабля: вертикальный цилиндр и дым над ним
-.stack {
-  width: 12px;
-  height: 30px;
-  margin-left: -6px;
-  border: 1px solid rgba($outline-color, 0.6);
-  border-top: 4px solid #111827;
-  border-radius: 3px 3px 0 0;
-  background: linear-gradient(to right, #374151, #9ca3af, #374151);
-}
-
-.smoke {
-  position: absolute;
-  left: 4px;
-  bottom: 30px;
-  width: 26px;
-  height: 16px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(220, 220, 220, 0.75), rgba(220, 220, 220, 0));
-  opacity: 0.45;
-
-  &.moving {
-    animation: drift 2.4s ease-out infinite;
   }
 }
 

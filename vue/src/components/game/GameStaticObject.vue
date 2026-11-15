@@ -2,13 +2,13 @@
 <template>
   <div
       class="game-static-object"
-      :class="{ selected, constructing: construction !== null }"
+      :class="[{ 'game-static-object--selected': selected, 'game-static-object--constructing': construction !== null }, typeClass]"
       :style="style"
       @mousedown.left.stop="() => pushEmit()"
   >
-    <div class="face wall" :style="faces.leftWall" />
-    <div class="face wall dark" :style="faces.rightWall" />
-    <div class="face top" :class="deckClass" :style="faces.top" />
+    <div class="game-static-object__wall game-static-object__wall--left" :style="faces.leftWall" />
+    <div class="game-static-object__wall game-static-object__wall--right" :style="faces.rightWall" />
+    <div class="game-static-object__top" :style="faces.top" />
     <Battlements v-if="type.roofHeight && type.roofType === 'battlements'" :type="type" />
     <PyramidRoof v-else-if="type.roofHeight" :type="type" />
     <TreeBranches v-if="type.branchColor" :type="type" />
@@ -54,8 +54,8 @@ const props = defineProps<{
 
 const store = useStore()
 
-// настил моста
-const deckClass = computed(() => (props.type.image ? `deck--${props.object.type}` : null))
+// модификатор типа на корне: у мостов с настилом верх получает рисунок досок
+const typeClass = computed(() => (props.type.image ? `game-static-object--${props.object.type}` : null))
 
 // что здание создаёт сейчас: полоска производства над полоской жизней
 const production = computed<ProductionJob | null>(() => store.getters['world/getProductionByBuilding'](props.object.id))
@@ -117,7 +117,7 @@ const faces = computed(() => {
       backgroundColor: color,
       transform: `matrix(${ISO_SCALE}, ${-ISO_SCALE / 2}, 0, 1, 0, 0)`,
     },
-    // верх - основание, поднятое на высоту стен; у моста настил рисует класс deck--*
+    // верх - основание, поднятое на высоту стен; у моста настил рисует модификатор game-static-object--bridge
     top: {
       left: -width / 2 + 'px',
       top: -height / 2 - wallHeight + 'px',
@@ -131,40 +131,51 @@ const faces = computed(() => {
 
 <style scoped lang="scss">
 @use '@/assets/styles/mixins' as *;
-@use '@/assets/styles/iso-faces';
 
 .game-static-object {
   position: absolute;
   width: 0;
   height: 0;
   cursor: pointer;
-}
 
-// недостроенное здание полупрозрачно, как превью при выборе места
-.constructing {
-  :deep(.face),
-  :deep(.slope),
-  :deep(.edge) {
-    opacity: 0.45;
+  // стены: скос изометрии, дальняя (правая) темнее
+  &__wall {
+    @include face('game-static-object');
+    @include wall;
+
+    &--right {
+      @include wall(true);
+    }
   }
-}
 
-// изометрия для ромбовидности
-.top {
-  @include iso-flat;
-}
+  // верх - основание, поднятое на высоту стен; изометрия для ромбовидности
+  &__top {
+    @include face('game-static-object');
+    @include iso-flat;
+  }
 
-// настил моста: доски
-.deck--bridge,
-.deck--bridge-vertical {
-  background-size: 100% 100%;
-}
+  // недостроенное здание полупрозрачно, как превью при выборе места
+  &--constructing {
+    .game-static-object__wall,
+    .game-static-object__top {
+      opacity: $ghost-opacity;
+    }
+  }
 
-.deck--bridge {
-  background-image: url('../../assets/bridge.svg');
-}
+  // настил моста: доски на всю площадь верха
+  &--bridge,
+  &--bridge-vertical {
+    .game-static-object__top {
+      background-size: 100% 100%;
+    }
+  }
 
-.deck--bridge-vertical {
-  background-image: url('../../assets/bridge-vertical.svg');
+  &--bridge .game-static-object__top {
+    background-image: url('../../assets/bridge.svg');
+  }
+
+  &--bridge-vertical .game-static-object__top {
+    background-image: url('../../assets/bridge-vertical.svg');
+  }
 }
 </style>

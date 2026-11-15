@@ -256,7 +256,7 @@ const run = (command: Command) => {
     }
 
     &--cancel {
-      background: #475569;
+      background: $cancel-button-background;
     }
   }
 

@@ -1,4 +1,4 @@
-﻿<!-- Основной компонент для поддержки различных типов местности -->
+<!-- Основной компонент для поддержки различных типов местности -->
 <template>
   <!-- земля карты: ромб с сеткой клеток -->
   <div class="ground" :style="groundStyle" />
@@ -8,7 +8,7 @@
       v-for="run in terrainRuns"
       :key="run.key"
       class="terrain-zone"
-      :class="'terrain-zone--' + run.cls"
+      :class="`terrain-zone--${run.cls}`"
       :style="runStyle(run)" />
 </template>
 
@@ -96,6 +96,7 @@ const runStyle = (run: TerrainRun) => {
     width: run.cols * MAP.cell + 'px',
     height: run.rows * MAP.cell + 'px',
     transformOrigin: `${-left}px ${-top}px`,
+    backgroundSize: `${TEXTURE_SIZE}px ${TEXTURE_SIZE}px`,
     backgroundPosition: `${-(left + MAP.width / 2) % TEXTURE_SIZE}px ${-(top + MAP.height / 2) % TEXTURE_SIZE}px`,
   }
 }
@@ -118,7 +119,6 @@ const runStyle = (run: TerrainRun) => {
 
 .terrain-zone {
   position: absolute;
-  background-size: 250px 250px;
 
   // ромбовидная зона в изометрии
   @include iso-flat;
