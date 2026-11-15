@@ -27,3 +27,16 @@ export const clampToMap = (point: Point): Point => ({
   x: Math.max(-MAP.width / 2, Math.min(MAP.width / 2, point.x)),
   y: Math.max(-MAP.height / 2, Math.min(MAP.height / 2, point.y)),
 })
+
+// Стиль div-отрезка от точки from к точке to в экранных координатах:
+// div растягивается на длину отрезка и поворачивается на его угол
+export const lineStyle = (from: Point, to: Point) => {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  return {
+    left: from.x + 'px',
+    top: from.y + 'px',
+    width: Math.hypot(dx, dy) + 'px',
+    transform: `rotate(${Math.atan2(dy, dx)}rad)`,
+  }
+}

@@ -3,15 +3,15 @@
 import { MAP, OBJECT_TYPES } from './config'
 import { staticFootprint } from './spatial'
 import type { Footprint } from './spatial'
-import type { Point, StaticObject, TerrainType, TerrainZone } from './types'
+import type { StaticObject, TerrainType, TerrainZone } from './types'
 
 // Местность - карта клеток MAP.cell × MAP.cell (60 × 60). Зоны сценария задаются
 // прямоугольниками из клеток, карта собирается один раз при загрузке сценария
 
-export const TERRAIN_COLS = MAP.width / MAP.cell
-export const TERRAIN_ROWS = MAP.height / MAP.cell
+const TERRAIN_COLS = MAP.width / MAP.cell
+const TERRAIN_ROWS = MAP.height / MAP.cell
 
-export const CELL_LAND = 0
+const CELL_LAND = 0
 export const CELL_SAND = 1
 export const CELL_LAKE = 2
 export const CELL_RIVER_H = 3
@@ -102,29 +102,58 @@ export const buildTerrainMap = (zones: readonly TerrainZone[]): TerrainMap => {
 // Чистая суша: карта сценариев без зон и значение по умолчанию
 export const EMPTY_TERRAIN: TerrainMap = buildTerrainMap([])
 
+// Прямоугольник одинаковых клеток: результат склейки карты для отрисовки
+export interface TerrainRect {
+  code: number // код клетки (CELL_*)
+  col: number
+  row: number
+  cols: number
+  rows: number
+}
+
+// Склейка карты в прямоугольники: сначала горизонтальные ряды одинаковых клеток,
+// затем соседние ряды того же кода и ширины. Прямоугольники суши тоже попадают
+// в результат - отрисовка пропускает их сама
+export const terrainRects = (map: TerrainMap): TerrainRect[] => {
+  const finished: TerrainRect[] = []
+  const open = new Map<string, TerrainRect>()
+  for (let row = 0; row < TERRAIN_ROWS; row++) {
+    let start = -1
+    let code = -1
+    const extended = new Set<string>()
+    for (let col = 0; col <= TERRAIN_COLS; col++) {
+      const next = col < TERRAIN_COLS ? map.cells[row * TERRAIN_COLS + col] : -1
+      if (next === code) continue
+      if (start >= 0 && code >= 0) {
+        const key = `${code}:${start}:${col - start}`
+        extended.add(key)
+        const rect = open.get(key)
+        if (rect) {
+          rect.rows++
+        } else {
+          open.set(key, { code, col: start, row, cols: col - start, rows: 1 })
+        }
+      }
+      start = col
+      code = next
+    }
+    for (const [key, rect] of open) {
+      if (!extended.has(key)) {
+        finished.push(rect)
+        open.delete(key)
+      }
+    }
+  }
+  for (const rect of open.values()) finished.push(rect)
+  return finished
+}
+
 // Клетка под точкой; за пределами карты - суша
-export const terrainCellAt = (map: TerrainMap, x: number, y: number): number => {
+const terrainCellAt = (map: TerrainMap, x: number, y: number): number => {
   const col = Math.floor((x + MAP.width / 2) / MAP.cell)
   const row = Math.floor((y + MAP.height / 2) / MAP.cell)
   if (col < 0 || col >= TERRAIN_COLS || row < 0 || row >= TERRAIN_ROWS) return CELL_LAND
   return map.cells[row * TERRAIN_COLS + col]
-}
-
-// Местность в точке: озеро и река - вода, горы - горы, всё остальное (в том числе песок) - суша
-export const terrainAt = (point: Point, map: TerrainMap): TerrainType =>
-  terrainClassOfCell(terrainCellAt(map, point.x, point.y))
-
-// Может ли юнит с такой местностью terrain стоять в точке;
-// 'both' и undefined ходят по суше и воде, горы непроходимы для всех.
-// Мост не меняет местность: вода под ним остаётся водой для судов,
-// но по настилу проходит и сухопутный юнит
-export const isTerrainPassable = (
-  point: Point, map: TerrainMap, terrain?: TerrainType | 'both', bridges: readonly Footprint[] = [],
-): boolean => {
-  const cell = terrainCellAt(map, point.x, point.y)
-  if (cell === CELL_MOUNTAIN) return false
-  return terrain === undefined || terrain === 'both' || terrainClassOfCell(cell) === terrain ||
-    isOnBridgeXY(point.x, point.y, bridges)
 }
 
 export const hasSolidTerrainUnder = (map: TerrainMap | undefined, area: Footprint): boolean => {

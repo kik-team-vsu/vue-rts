@@ -17,7 +17,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useStore } from 'vuex'
-import { worldToScreen } from '@/game/coords'
+import { lineStyle, worldToScreen } from '@/game/coords'
 import type { GameEvent, Point, Unit } from '@/game/types'
 
 // Приказы выбранных юнитов: только рисует события и маршруты из стора, ничего не меняет
@@ -35,17 +35,7 @@ const toOrder = (id: number, worldPoints: Point[], queued: boolean) => {
       left: to.x + 'px',
       top: to.y + 'px',
     },
-    pathStyles: points.slice(1).map((point, index) => {
-      const from = points[index]
-      const dx = point.x - from.x
-      const dy = point.y - from.y
-      return {
-        left: from.x + 'px',
-        top: from.y + 'px',
-        width: Math.hypot(dx, dy) + 'px',
-        transform: `rotate(${Math.atan2(dy, dx)}rad)`,
-      }
-    }),
+    pathStyles: points.slice(1).map((point, index) => lineStyle(points[index], point)),
   }
 }
 

@@ -28,11 +28,14 @@ export default {
     isRunning: (state, getters) => state.started && !getters.isGameOver,
     getPaused: (state) => state.paused,
     getScenarioId: (state) => state.scenarioId,
-    // Группы у которых остались юниты или здания, группа 0 не считается
-    getAliveGroups: (state, getters, rootState, rootGetters) => rootGetters['world/getAliveGroups'],
-    // Конец игры, когда осталась одна группа
-    getWinner: (state, getters) => (getters.getAliveGroups.length === 1 ? getters.getAliveGroups[0] : null),
-    isGameOver: (state, getters) => state.started && getters.getAliveGroups.length <= 1,
+    // Живые группы (юниты или здания, группа 0 не считается) - из стора world;
+    // конец игры, когда осталась одна группа
+    getWinner: (state, getters, rootState, rootGetters) => {
+      const alive = rootGetters['world/getAliveGroups']
+      return alive.length === 1 ? alive[0] : null
+    },
+    isGameOver: (state, getters, rootState, rootGetters) =>
+      state.started && rootGetters['world/getAliveGroups'].length <= 1,
   },
   mutations: {
     [MUTATIONS.SET_PAUSED]: (state, paused) => {

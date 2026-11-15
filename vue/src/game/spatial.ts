@@ -1,6 +1,7 @@
 // Основные функции для определния положения в пространстве и наложения юнитов и зданий
 
 import { MAP, OBJECT_TYPES, UNIT_TYPES } from './config'
+import { worldToScreen } from './coords'
 import type { TerrainMap } from './terrain'
 import type { Point, StaticObject, Unit } from './types'
 
@@ -43,7 +44,7 @@ export const squareFootprint = (position: Point, margin: number): Footprint => (
   position, halfWidth: margin, halfHeight: margin,
 })
 
-export const isValidFootprint = (area: Footprint): boolean =>
+const isValidFootprint = (area: Footprint): boolean =>
   !!area.position && Number.isFinite(area.position.x) && Number.isFinite(area.position.y) &&
   Number.isFinite(area.halfWidth) && Number.isFinite(area.halfHeight) &&
   area.halfWidth > 0 && area.halfHeight > 0
@@ -154,33 +155,6 @@ export const isAreaFree = (world: CollisionWorld, area: Footprint, options: Coll
   return true
 }
 
-// Проверка всего отрезка перемещения с учётом размеров основания
-export const isSweepFree = (
-  world: CollisionWorld, area: Footprint, to: Point, options: CollisionOptions = {},
-): boolean => {
-  if (!isInsideMap(area) || !isInsideMap({ ...area, position: to })) {
-    return false
-  }
-  const scratch: Footprint = { position: { x: 0, y: 0 }, halfWidth: 0, halfHeight: 0 }
-  if (!objectsSweepFree(world.objects, area.position, to, area, scratch, options.ignoreId)) {
-    return false
-  }
-  for (const unit of world.units) {
-    if (unit.id === options.ignoreId) continue
-    const type = UNIT_TYPES[unit.type]
-    if (!unit.position || !type || !Number.isFinite(type.width) || !(type.width > 0)) {
-      return false
-    }
-    scratch.position = unit.position
-    scratch.halfWidth = type.width / 2
-    scratch.halfHeight = type.width / 2
-    if (segmentIntersectsObstacle(area.position, to, area, scratch)) {
-      return false
-    }
-  }
-  return sweepFootprintsFree(options.reserved ?? [], area.position, to, area)
-}
-
 export const clampFootprintToMap = (area: Footprint): Point => ({
   x: Math.max(-MAP.width / 2 + area.halfWidth, Math.min(MAP.width / 2 - area.halfWidth, area.position.x)),
   y: Math.max(-MAP.height / 2 + area.halfHeight, Math.min(MAP.height / 2 - area.halfHeight, area.position.y)),
@@ -232,3 +206,24 @@ export const findNearestFreePosition = (
   }
   return best
 }
+
+// Прямоугольник на экране в пикселях (например, рамка выделения)
+export interface ScreenBox {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+// id юнитов, попавших в рамку на экране. Проверяется точка юнита на экране
+export const unitIdsInsideBox = (
+  units: readonly Unit[], box: ScreenBox, camera: Point, viewport: { width: number, height: number },
+): number[] =>
+  units
+    .filter((unit) => {
+      const point = worldToScreen(unit.position)
+      const x = point.x - camera.x + viewport.width / 2
+      const y = point.y - camera.y + viewport.height / 2 - UNIT_TYPES[unit.type].height / 2
+      return x >= box.left && x <= box.left + box.width && y >= box.top && y <= box.top + box.height
+    })
+    .map((unit) => unit.id)

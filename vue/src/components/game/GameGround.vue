@@ -16,8 +16,8 @@
 import { computed } from 'vue'
 import { useStore } from 'vuex'
 import { MAP } from '@/game/config'
-import { CELL_LAKE, CELL_MOUNTAIN, CELL_RIVER_H, CELL_RIVER_V, CELL_SAND, TERRAIN_COLS, TERRAIN_ROWS } from '@/game/terrain'
-import type { TerrainMap } from '@/game/terrain'
+import { CELL_LAKE, CELL_MOUNTAIN, CELL_RIVER_H, CELL_RIVER_V, CELL_SAND, terrainRects } from '@/game/terrain'
+import type { TerrainRect } from '@/game/terrain'
 
 // Плитка текстуры местности
 const TEXTURE_SIZE = 250
@@ -41,50 +41,18 @@ const RUN_CLASS: Record<number, string> = {
   [CELL_MOUNTAIN]: 'mountain',
 }
 
-interface TerrainRun {
+// Прямоугольник клеток для рендера: класс стиля зоны и уникальный ключ
+interface TerrainRun extends TerrainRect {
   key: string
   cls: string
-  col: number
-  row: number
-  cols: number
-  rows: number
 }
 
-// Прямоугольники одинаковых клеток: сначала ряды строки, затем соседние строки
-const terrainRuns = computed<TerrainRun[]>(() => {
-  const map: TerrainMap = store.getters['world/getTerrainMap']
-  const finished: TerrainRun[] = []
-  const open = new Map<string, TerrainRun>()
-  for (let row = 0; row < TERRAIN_ROWS; row++) {
-    let start = -1
-    let cls = ''
-    const extended = new Set<string>()
-    for (let col = 0; col <= TERRAIN_COLS; col++) {
-      const nextCls = col < TERRAIN_COLS ? RUN_CLASS[map.cells[row * TERRAIN_COLS + col]] ?? '' : ''
-      if (nextCls === cls) continue
-      if (start >= 0 && cls) {
-        const key = `${cls}:${start}:${col - start}`
-        extended.add(key)
-        const rect = open.get(key)
-        if (rect) {
-          rect.rows++
-        } else {
-          open.set(key, { key: `${key}:${row}`, cls, col: start, row, cols: col - start, rows: 1 })
-        }
-      }
-      start = col
-      cls = nextCls
-    }
-    for (const [key, rect] of open) {
-      if (!extended.has(key)) {
-        finished.push(rect)
-        open.delete(key)
-      }
-    }
-  }
-  for (const rect of open.values()) finished.push(rect)
-  return finished
-})
+// Местность: прямоугольники одинаковых клеток (склейка карты - terrainRects в terrain.ts)
+const terrainRuns = computed<TerrainRun[]>(() =>
+  terrainRects(store.getters['world/getTerrainMap']).flatMap((rect) => {
+    const cls = RUN_CLASS[rect.code] ?? ''
+    return cls ? [{ ...rect, cls, key: `${rect.code}:${rect.col}:${rect.row}` }] : []
+  }))
 
 // Прямоугольник в мировых координатах. Точка поворота - центр карты (мировой ноль)
 const runStyle = (run: TerrainRun) => {

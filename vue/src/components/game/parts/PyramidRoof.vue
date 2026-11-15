@@ -9,7 +9,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { worldToScreen } from '@/game/coords'
+import { lineStyle, worldToScreen } from '@/game/coords'
 import type { ObjectType, Point } from '@/game/types'
 
 const props = defineProps<{
@@ -30,17 +30,6 @@ const polygon = (points: Point[], color: string, brightness: number) => {
   }
 }
 
-const edge = (from: Point, to: Point) => {
-  const dx = to.x - from.x
-  const dy = to.y - from.y
-  return {
-    left: from.x + 'px',
-    top: from.y + 'px',
-    width: Math.hypot(dx, dy) + 'px',
-    transform: `rotate(${Math.atan2(dy, dx)}rad)`,
-  }
-}
-
 const parts = computed(() => {
   const { width, height, color, wallHeight = 0, roofHeight = 0, roofColor } = props.type
   const corner = (x: number, y: number): Point => {
@@ -57,9 +46,9 @@ const parts = computed(() => {
   const edges = (...styles: object[]) => styles.map((style) => ({ class: 'pyramid-roof__edge', style }))
   return [
     ...slopes(polygon([back, left, peak], fill, 0.8), polygon([back, right, peak], fill, 0.6)),
-    ...edges(edge(back, left), edge(back, right), edge(back, peak)),
+    ...edges(lineStyle(back, left), lineStyle(back, right), lineStyle(back, peak)),
     ...slopes(polygon([left, front, peak], fill, 1), polygon([front, right, peak], fill, 0.7)),
-    ...edges(edge(left, peak), edge(front, peak), edge(right, peak)),
+    ...edges(lineStyle(left, peak), lineStyle(front, peak), lineStyle(right, peak)),
   ]
 })
 </script>

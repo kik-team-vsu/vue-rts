@@ -93,15 +93,10 @@ import UnitOrders from './UnitOrders.vue'
 import BuildingPreview from './BuildingPreview.vue'
 import type { BuildingPlacement } from '@/game/building'
 import { CAMERA, OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
-import { screenToWorld, worldToScreen } from '@/game/coords'
+import { lineStyle, screenToWorld, worldToScreen } from '@/game/coords'
+import { unitIdsInsideBox } from '@/game/spatial'
+import type { ScreenBox } from '@/game/spatial'
 import type { BuildingType, Point, StaticObject, Unit } from '@/game/types'
-
-interface Box {
-  left: number
-  top: number
-  width: number
-  height: number
-}
 
 // Рамка считается рамкой, только если мышь заметно сдвинули, иначе это обычный клик
 const MIN_SELECTION_PX = 5
@@ -148,7 +143,7 @@ let lastFollowTime = 0
 let selectStart: Point | null = null
 // Рамку начали с зажатым shift: найденные юниты добавляются к уже выбранным
 let selectAdditive = false
-const selectionBox = ref<Box | null>(null)
+const selectionBox = ref<ScreenBox | null>(null)
 
 const worldStyle = computed(() => ({
   transform: `translate(${-camera.value.x}px, ${-camera.value.y}px)`,
@@ -164,16 +159,9 @@ const attacks = computed(() => {
     if (!target) continue
     const from = worldToScreen(unit.position)
     const to = worldToScreen(target.position)
-    const dx = to.x - from.x
-    const dy = to.y - from.y
     result.push({
       id: unit.id,
-      lineStyle: {
-        left: from.x + 'px',
-        top: from.y + 'px',
-        width: Math.hypot(dx, dy) + 'px',
-        transform: `rotate(${Math.atan2(dy, dx)}rad)`,
-      },
+      lineStyle: lineStyle(from, to),
       markStyle: {
         left: to.x + 'px',
         top: to.y + 'px',
@@ -315,7 +303,7 @@ const selectUnit = (id: number, additive: boolean) => {
   }
 }
 
-const getSelectionBox = (start: Point): Box => ({
+const getSelectionBox = (start: Point): ScreenBox => ({
   left: Math.min(start.x, mouse.x),
   top: Math.min(start.y, mouse.y),
   width: Math.abs(mouse.x - start.x),
@@ -323,7 +311,7 @@ const getSelectionBox = (start: Point): Box => ({
 })
 
 // Рамка считается рамкой, только если мышь заметно сдвинули, иначе это обычный клик
-const isBigEnough = (box: Box) => box.width > MIN_SELECTION_PX || box.height > MIN_SELECTION_PX
+const isBigEnough = (box: ScreenBox) => box.width > MIN_SELECTION_PX || box.height > MIN_SELECTION_PX
 
 // Левая кнопка на пустом месте: начинаем тянуть рамку (клик по объекту сюда не доходит, там stop)
 const startSelect = (e: MouseEvent) => {
@@ -357,16 +345,11 @@ const finishSelect = () => {
     }
     return
   }
-  const width = screenView.value.clientWidth
-  const height = screenView.value.clientHeight
-  const ids = units.value
-    .filter((u) => {
-      const point = worldToScreen(u.position)
-      const x = point.x - camera.value.x + width / 2
-      const y = point.y - camera.value.y + height / 2 - UNIT_TYPES[u.type].height / 2
-      return x >= box.left && x <= box.left + box.width && y >= box.top && y <= box.top + box.height
-    })
-    .map((u) => u.id)
+  // кто попал в рамку на экране, решает spatial; здесь только отдаём выбранные id
+  const ids = unitIdsInsideBox(units.value, box, camera.value, {
+    width: screenView.value.clientWidth,
+    height: screenView.value.clientHeight,
+  })
   store.dispatch(selectAdditive ? 'selection/addToSelection' : 'selection/selectMany', ids)
 }
 
