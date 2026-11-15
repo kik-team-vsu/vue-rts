@@ -1,3 +1,4 @@
+<!-- Компонент для отрисовки крыши в виде пирамиды для статичных объектов -->
 <template>
   <div
       v-for="(part, index) in parts"
@@ -11,7 +12,6 @@ import { computed } from 'vue'
 import { worldToScreen } from '@/game/coords'
 import type { ObjectType, Point } from '@/game/types'
 
-// крыша-пирамида над стенами статичного объекта
 const props = defineProps<{
   type: ObjectType
 }>()
@@ -30,7 +30,6 @@ const polygon = (points: Point[], color: string, brightness: number) => {
   }
 }
 
-// ребро крыши
 const edge = (from: Point, to: Point) => {
   const dx = to.x - from.x
   const dy = to.y - from.y
@@ -68,7 +67,6 @@ const parts = computed(() => {
 <style scoped lang="scss">
 @use '@/assets/styles/mixins' as *;
 
-// скат крыши
 .slope {
   position: absolute;
 }

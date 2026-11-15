@@ -1,3 +1,5 @@
+// Основные функции для определния положения в пространстве и наложения юнитов и зданий
+
 import { MAP, OBJECT_TYPES, UNIT_TYPES } from './config'
 import type { TerrainMap } from './terrain'
 import type { Point, StaticObject, Unit } from './types'
@@ -114,26 +116,40 @@ export const isAreaFree = (world: CollisionWorld, area: Footprint, options: Coll
   if (!isInsideMap(area)) return false
   const scratch: Footprint = { position: { x: 0, y: 0 }, halfWidth: 0, halfHeight: 0 }
   for (const object of world.objects) {
-    if (object.id === options.ignoreId || OBJECT_TYPES[object.type]?.passable) continue
+    if (object.id === options.ignoreId || OBJECT_TYPES[object.type]?.passable) {
+      continue
+    }
     const type = OBJECT_TYPES[object.type]
     if (!object.position || !type || !Number.isFinite(type.width) || !(type.width > 0) ||
-      !Number.isFinite(type.height) || !(type.height > 0)) return false
+      !Number.isFinite(type.height) || !(type.height > 0)) {
+      return false
+    }
     scratch.position = object.position
     scratch.halfWidth = type.width / 2
     scratch.halfHeight = type.height / 2
-    if (overlaps(area, scratch)) return false
+    if (overlaps(area, scratch)) {
+      return false
+    }
   }
   for (const unit of world.units) {
-    if (unit.id === options.ignoreId) continue
+    if (unit.id === options.ignoreId) {
+      continue
+    }
     const type = UNIT_TYPES[unit.type]
-    if (!unit.position || !type || !Number.isFinite(type.width) || !(type.width > 0)) return false
+    if (!unit.position || !type || !Number.isFinite(type.width) || !(type.width > 0)) {
+      return false
+    }
     scratch.position = unit.position
     scratch.halfWidth = type.width / 2
     scratch.halfHeight = type.width / 2
-    if (overlaps(area, scratch)) return false
+    if (overlaps(area, scratch)) {
+      return false
+    }
   }
   for (const obstacle of options.reserved ?? []) {
-    if (!isValidFootprint(obstacle) || overlaps(area, obstacle)) return false
+    if (!isValidFootprint(obstacle) || overlaps(area, obstacle)) {
+      return false
+    }
   }
   return true
 }
@@ -142,17 +158,25 @@ export const isAreaFree = (world: CollisionWorld, area: Footprint, options: Coll
 export const isSweepFree = (
   world: CollisionWorld, area: Footprint, to: Point, options: CollisionOptions = {},
 ): boolean => {
-  if (!isInsideMap(area) || !isInsideMap({ ...area, position: to })) return false
+  if (!isInsideMap(area) || !isInsideMap({ ...area, position: to })) {
+    return false
+  }
   const scratch: Footprint = { position: { x: 0, y: 0 }, halfWidth: 0, halfHeight: 0 }
-  if (!objectsSweepFree(world.objects, area.position, to, area, scratch, options.ignoreId)) return false
+  if (!objectsSweepFree(world.objects, area.position, to, area, scratch, options.ignoreId)) {
+    return false
+  }
   for (const unit of world.units) {
     if (unit.id === options.ignoreId) continue
     const type = UNIT_TYPES[unit.type]
-    if (!unit.position || !type || !Number.isFinite(type.width) || !(type.width > 0)) return false
+    if (!unit.position || !type || !Number.isFinite(type.width) || !(type.width > 0)) {
+      return false
+    }
     scratch.position = unit.position
     scratch.halfWidth = type.width / 2
     scratch.halfHeight = type.width / 2
-    if (segmentIntersectsObstacle(area.position, to, area, scratch)) return false
+    if (segmentIntersectsObstacle(area.position, to, area, scratch)) {
+      return false
+    }
   }
   return sweepFootprintsFree(options.reserved ?? [], area.position, to, area)
 }
@@ -169,11 +193,15 @@ export const findNearestFreePosition = (
   area: Footprint,
   options: CollisionOptions & { accept?: (point: Point) => boolean } = {},
 ): Point | null => {
-  if (!isValidFootprint(area) || area.halfWidth * 2 > MAP.width || area.halfHeight * 2 > MAP.height) return null
+  if (!isValidFootprint(area) || area.halfWidth * 2 > MAP.width || area.halfHeight * 2 > MAP.height) {
+    return null
+  }
   const origin = clampFootprintToMap(area)
   const available = (point: Point) => isAreaFree(world, { ...area, position: point }, options) &&
     (options.accept?.(point) ?? true)
-  if (available(origin)) return origin
+  if (available(origin)) {
+    return origin
+  }
 
   let best: Point | null = null
   let bestDistance = Infinity // квадрат расстояния до лучшего кандидата
@@ -189,7 +217,9 @@ export const findNearestFreePosition = (
   const rings = Math.ceil(Math.max(MAP.width, MAP.height) / SEARCH_STEP)
   for (let ring = 1; ring <= rings; ring++) {
     // Следующие кольца уже дальше лучшего кандидата
-    if ((ring * SEARCH_STEP) ** 2 > bestDistance) break
+    if ((ring * SEARCH_STEP) ** 2 > bestDistance) {
+      break
+    }
     // Обходим только периметр кольца
     for (let offset = -ring; offset <= ring; offset++) {
       visit(-ring, offset)

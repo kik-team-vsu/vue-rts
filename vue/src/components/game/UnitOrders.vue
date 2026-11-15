@@ -1,5 +1,5 @@
-﻿<template>
-  <!-- очереди приказов выбранных юнитов: путь от юнита через все точки очереди и метка в каждой точке -->
+﻿<!-- Компонент для поддержки очереди приказов выбранных юнитов  -->
+<template>
   <template v-for="order in orders" :key="order.id">
     <div
         v-for="(style, index) in order.pathStyles"
@@ -75,8 +75,6 @@ const orders = computed(() => {
 .path-line {
   transform-origin: left center;
   pointer-events: none;
-
-  // путь виден над настилом моста (слой мостов - z-index 2 в GameField)
   z-index: 3;
 
   @include line(dashed, rgba($selected-color, 0.7));

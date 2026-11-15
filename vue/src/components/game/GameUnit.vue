@@ -1,3 +1,4 @@
+<!-- Компонент для отрисовки юнитов -->
 <template>
   <div
       class="game-unit"

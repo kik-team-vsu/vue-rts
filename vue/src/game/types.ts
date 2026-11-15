@@ -1,3 +1,5 @@
+// Основные объектные игры
+
 export interface Point {
   x: number
   y: number

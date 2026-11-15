@@ -1,3 +1,5 @@
+// Основные настройки игры
+
 import type { BuildingType, Command, ObjectType, StaticObject, TerrainZone, Unit, UnitType } from './types'
 
 export const MAP = { width: 3000, height: 3000, cell: 50 }

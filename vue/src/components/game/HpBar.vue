@@ -1,3 +1,4 @@
+<!-- Компонент для отрисоки полоски жизней  -->
 <template>
   <div class="hp-bar" :style="barStyle">
     <div class="hp-fill" :style="fillStyle" />

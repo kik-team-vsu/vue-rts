@@ -1,3 +1,4 @@
+<!-- Компонент для отрисоки информационной панели  -->
 <template>
   <div class="info-panel">
     <template v-if="selected">

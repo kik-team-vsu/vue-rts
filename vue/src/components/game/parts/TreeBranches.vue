@@ -1,3 +1,4 @@
+<!-- Компонент для отрисовки ветвей деревьев -->
 <template>
   <div
       v-for="(branch, index) in branches"
@@ -16,7 +17,6 @@ const props = defineProps<{
 }>()
 
 const BRANCH_PAIRS = 4
-// угол наклона веток вниз
 const BRANCH_ANGLE = 25
 
 const branches = computed(() => {

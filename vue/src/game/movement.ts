@@ -1,3 +1,5 @@
+// Основные функции для перемещения юнитов
+
 import { UNIT_TYPES } from './config'
 import { isSegmentFree } from './obstacles'
 import { findPath } from './pathfinding'

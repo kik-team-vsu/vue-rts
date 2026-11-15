@@ -1,3 +1,4 @@
+<!-- Главная страница -->
 <template>
   <div>
     <RouterLink class="start-button" :to="{ name: $routes.GAME }">

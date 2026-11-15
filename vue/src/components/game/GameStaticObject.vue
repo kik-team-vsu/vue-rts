@@ -1,10 +1,11 @@
+<!-- Компонент для отрисовки статических объектов (здания, деревья) -->
 <template>
   <div
       class="game-static-object"
       :class="{ selected, constructing: construction !== null }"
       :style="style"
-      @mousedown.left.stop="() => pushEmit()">
-    <!-- здание или дерево: две ближние к камере стены и верх, затем крыша или ветки, если они есть у типа -->
+      @mousedown.left.stop="() => pushEmit()"
+  >
     <div class="face wall" :style="faces.leftWall" />
     <div class="face wall dark" :style="faces.rightWall" />
     <div class="face top" :class="deckClass" :style="faces.top" />
@@ -56,17 +57,16 @@ const store = useStore()
 // настил моста
 const deckClass = computed(() => (props.type.image ? `deck--${props.object.type}` : null))
 
-// что здание создаёт сейчас (null - ничего): полоска производства над полоской жизней
+// что здание создаёт сейчас: полоска производства над полоской жизней
 const production = computed<ProductionJob | null>(() => store.getters['world/getProductionByBuilding'](props.object.id))
 
-// строится ли здание сейчас (null - построено): полоска стройки на месте полоски производства
+// строится ли здание сейчас (null = построено): полоска стройки на месте полоски производства
 const construction = computed(() => store.getters['world/getConstructionByObject'](props.object.id))
 
 // событие для родителя (GameField): если на объект кликнули, его надо выбрать
 const emit = defineEmits<{ select: [] }>()
 const pushEmit = () => emit('select')
 
-// жизни есть только у зданий
 const maxHp = computed(() => ('maxHp' in props.type ? props.type.maxHp : null))
 
 // ширина полоски жизней на одну клетку размера здания: чем больше здание, тем шире полоска
@@ -98,7 +98,6 @@ const faces = computed(() => {
   const wallHeight = props.type.wallHeight ?? 0
   const left = worldToScreen({ x: -width / 2, y: height / 2 })
   const front = worldToScreen({ x: width / 2, y: height / 2 })
-  // matrix наклоняет стену вдоль стороны основания: по горизонтали как у земли, вертикаль остаётся вертикалью
   return {
     // стена вдоль оси x мира: от левого угла вправо-вниз к ближнему
     leftWall: {
@@ -141,8 +140,7 @@ const faces = computed(() => {
   cursor: pointer;
 }
 
-// недостроенное здание полупрозрачно, как превью при выборе места;
-// полоски жизней и стройки при этом остаются яркими
+// недостроенное здание полупрозрачно, как превью при выборе места
 .constructing {
   :deep(.face),
   :deep(.slope),
@@ -151,7 +149,7 @@ const faces = computed(() => {
   }
 }
 
-// та же изометрия для ромбовидности
+// изометрия для ромбовидности
 .top {
   @include iso-flat;
 }

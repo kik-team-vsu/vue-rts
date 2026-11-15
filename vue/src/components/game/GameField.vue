@@ -1,3 +1,4 @@
+<!-- Основной компонент игрового поля -->
 <template>
   <div
       ref="screenView"
@@ -133,7 +134,6 @@ const isRunning = computed<boolean>(() => store.getters['game/isRunning'])
 const screenView = ref<HTMLElement | null>(null)
 // Камера живёт в сторе camera, игровой цикл - в сторе engine
 const camera = computed<Point>(() => store.getters['camera/getPosition'])
-// Положение курсора внутри окна игры
 const mouse = { x: 0, y: 0 }
 let mouseInside = false
 const resizeObserver = new ResizeObserver(([entry]) => {
@@ -153,7 +153,6 @@ const selectionBox = ref<Box | null>(null)
 const worldStyle = computed(() => ({
   transform: `translate(${-camera.value.x}px, ${-camera.value.y}px)`,
 }))
-
 
 // Кто кого атакует: линия от атакующего к цели и кольцо на цели (цель - юнит или здание).
 // Цели может уже не быть - тогда атакующий скоро выйдет из режима атаки
@@ -205,7 +204,7 @@ const toWorld = (e: MouseEvent): Point => {
   })
 }
 
-// Курсор у края экрана двигает камеру: сообщаем стору направление, сдвиг считает игровой цикл
+// Курсор у края экрана двигает камеру
 const updateEdgeScroll = () => {
   const view = screenView.value
   if (!view || dragging || !mouseInside) {
@@ -228,7 +227,6 @@ const updateEdgeScroll = () => {
 }
 
 const saveMouse = (e: MouseEvent) => {
-  // Окно ввода на странице и его размер
   const rect = screenView.value!.getBoundingClientRect()
   mouse.x = e.clientX - rect.left
   mouse.y = e.clientY - rect.top
@@ -268,7 +266,9 @@ const startFollow = (e: MouseEvent) => {
 
 // Курсор двигается с зажатой ПКМ: переносим точку последнего приказа (force - без ограничения частоты)
 const follow = (e: MouseEvent, force = false) => {
-  if (buildingType.value) following = false
+  if (buildingType.value) {
+    following = false
+  }
   if (!following) {
     return
   }
@@ -284,8 +284,9 @@ const follow = (e: MouseEvent, force = false) => {
 }
 
 const placeBuilding = (e: MouseEvent) => {
-  if (!buildingType.value) return
-  // Перехватываем клик до выбора дочернего объекта и начала рамки
+  if (!buildingType.value) {
+    return
+  }
   e.stopImmediatePropagation()
   e.preventDefault()
   selectStart = null
@@ -326,7 +327,6 @@ const isBigEnough = (box: Box) => box.width > MIN_SELECTION_PX || box.height > M
 
 // Левая кнопка на пустом месте: начинаем тянуть рамку (клик по объекту сюда не доходит, там stop)
 const startSelect = (e: MouseEvent) => {
-  // В меню и после конца игры рамку не рисуем
   if (!isRunning.value) {
     return
   }
@@ -335,7 +335,6 @@ const startSelect = (e: MouseEvent) => {
   selectAdditive = e.shiftKey
 }
 
-// Рамка на экране обновляется при движении мыши
 const updateSelectionBox = () => {
   if (!selectStart) {
     return
@@ -353,7 +352,6 @@ const finishSelect = () => {
   selectionBox.value = null
 
   if (!isBigEnough(box)) {
-    // Клик с shift по пустому месту не сбрасывает выбор
     if (!selectAdditive) {
       select(null)
     }
@@ -395,7 +393,6 @@ const onWindowMouseUp = (e: MouseEvent) => {
     dragging = false
   }
   if (e.button === 2 && following) {
-    // ПКМ отпущена: точка под курсором становится конечной
     follow(e, true)
     following = false
   }
@@ -435,7 +432,6 @@ onUnmounted(() => {
 }
 
 .screen-view--paused :deep(*) {
-  // На паузе анимация стоит
   animation-play-state: paused !important;
 }
 
@@ -453,13 +449,11 @@ onUnmounted(() => {
   z-index: 0;
 }
 
-// Настил моста: выше судов под ним (z-index 1 в GameUnit) и ниже юнитов на настиле
 .bridges-layer {
   position: absolute;
   z-index: 2;
 }
 
-// Уничтожение: объект сжимается к основанию и исчезает
 .destroy-leave-active {
   animation: destroy 0.4s ease-in forwards;
   transform-origin: bottom center;
@@ -477,8 +471,6 @@ onUnmounted(() => {
   }
 }
 
-// Атака: сплошная красная линия пульсирует, пока идёт бой
-// (z-index выше настила моста: линия видна и над мостом)
 .attack-line {
   position: absolute;
   z-index: 3;
@@ -508,7 +500,6 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-// Кольцо на цели атаки: тот же эллипс в плоскости карты, что и target-mark
 .attack-mark {
   position: absolute;
   z-index: 3;

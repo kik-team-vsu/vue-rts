@@ -1,3 +1,4 @@
+<!-- Компонент для отрисоки процесса производства юнита  -->
 <template>
   <div class="production-bar" :style="barStyle">
     <div class="production-fill" :style="fillStyle" />
@@ -8,7 +9,6 @@
 import { computed } from 'vue'
 
 // полоска производства над зданием: насколько готов юнит, которого здание создаёт сейчас
-// offset - тот же подъём, что у полоски жизней; полоска рисуется над ней
 const props = withDefaults(defineProps<{
   progress: number // готовность 0..1
   offset?: number
@@ -18,7 +18,6 @@ const props = withDefaults(defineProps<{
 const ratio = computed(() => Math.max(0, Math.min(1, props.progress)))
 
 const barStyle = computed(() => ({
-  // выше полоски жизней: её подъём (14) + её высота с рамкой (10) + зазор (4)
   top: -props.offset - 28 + 'px',
   width: props.width + 'px',
 }))

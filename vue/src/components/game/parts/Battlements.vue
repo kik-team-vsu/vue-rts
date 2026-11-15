@@ -1,3 +1,4 @@
+<!-- Компонент для отрисовки зубчатых стен замка -->
 <template>
   <div
       v-for="(tooth, index) in teeth"

@@ -1,8 +1,9 @@
-﻿<template>
+﻿<!-- Основной компонент для поддержки различных типов местности -->
+<template>
   <!-- земля карты: ромб с сеткой клеток -->
   <div class="ground" :style="groundStyle" />
 
-  <!-- местность: горизонтальные ряды одинаковых клеток карты (суша не рисуется) -->
+  <!-- местность: горизонтальные ряды одинаковых клеток карты -->
   <div
       v-for="run in terrainRuns"
       :key="run.key"
@@ -53,7 +54,6 @@ interface TerrainRun {
 const terrainRuns = computed<TerrainRun[]>(() => {
   const map: TerrainMap = store.getters['world/getTerrainMap']
   const finished: TerrainRun[] = []
-  // открытые прямоугольники, продолжаемые в следующую строку: ключ cls:col:width
   const open = new Map<string, TerrainRun>()
   for (let row = 0; row < TERRAIN_ROWS; row++) {
     let start = -1
@@ -120,7 +120,7 @@ const runStyle = (run: TerrainRun) => {
   position: absolute;
   background-size: 250px 250px;
 
-  // как у .ground: ромбовидная зона в изометрии
+  // ромбовидная зона в изометрии
   @include iso-flat;
 
   // озеро: спокойная глубокая вода

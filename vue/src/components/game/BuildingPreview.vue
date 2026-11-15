@@ -1,3 +1,4 @@
+<!-- Компонент для превью постройки зданий -->
 <template>
   <div
       class="building-preview"
@@ -28,7 +29,6 @@ const props = defineProps<{
   group: number
 }>()
 
-// Модель рисуется относительно центра превью, её позиция локальная
 const object = computed<StaticObject>(() => ({
   id: 0, type: props.typeId, group: props.group, position: { x: 0, y: 0 },
 }))
