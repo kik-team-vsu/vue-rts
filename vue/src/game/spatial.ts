@@ -44,7 +44,7 @@ export const squareFootprint = (position: Point, margin: number): Footprint => (
   position, halfWidth: margin, halfHeight: margin,
 })
 
-export const isValidFootprint = (area: Footprint): boolean =>
+const isValidFootprint = (area: Footprint): boolean =>
   !!area.position && Number.isFinite(area.position.x) && Number.isFinite(area.position.y) &&
   Number.isFinite(area.halfWidth) && Number.isFinite(area.halfHeight) &&
   area.halfWidth > 0 && area.halfHeight > 0
@@ -153,33 +153,6 @@ export const isAreaFree = (world: CollisionWorld, area: Footprint, options: Coll
     }
   }
   return true
-}
-
-// Проверка всего отрезка перемещения с учётом размеров основания
-export const isSweepFree = (
-  world: CollisionWorld, area: Footprint, to: Point, options: CollisionOptions = {},
-): boolean => {
-  if (!isInsideMap(area) || !isInsideMap({ ...area, position: to })) {
-    return false
-  }
-  const scratch: Footprint = { position: { x: 0, y: 0 }, halfWidth: 0, halfHeight: 0 }
-  if (!objectsSweepFree(world.objects, area.position, to, area, scratch, options.ignoreId)) {
-    return false
-  }
-  for (const unit of world.units) {
-    if (unit.id === options.ignoreId) continue
-    const type = UNIT_TYPES[unit.type]
-    if (!unit.position || !type || !Number.isFinite(type.width) || !(type.width > 0)) {
-      return false
-    }
-    scratch.position = unit.position
-    scratch.halfWidth = type.width / 2
-    scratch.halfHeight = type.width / 2
-    if (segmentIntersectsObstacle(area.position, to, area, scratch)) {
-      return false
-    }
-  }
-  return sweepFootprintsFree(options.reserved ?? [], area.position, to, area)
 }
 
 export const clampFootprintToMap = (area: Footprint): Point => ({

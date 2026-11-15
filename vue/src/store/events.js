@@ -20,7 +20,7 @@ const MUTATIONS = {
   SET_EVENT_TARGET: 'SET_EVENT_TARGET',
 }
 
-export const EVENT_STATUS = {
+const EVENT_STATUS = {
   ACTIVE: 'active',
   WAITING: 'waiting',
 }
@@ -56,7 +56,6 @@ export default {
     }
   },
   getters: {
-    getAll: (state) => state.list,
     // события, которые выполняются сейчас
     getActive: (state) => state.list.filter((e) => e.status === EVENT_STATUS.ACTIVE),
     // что объект делает сейчас (или null)
