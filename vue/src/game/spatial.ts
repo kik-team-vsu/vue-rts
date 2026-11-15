@@ -1,6 +1,7 @@
 // Основные функции для определния положения в пространстве и наложения юнитов и зданий
 
 import { MAP, OBJECT_TYPES, UNIT_TYPES } from './config'
+import { worldToScreen } from './coords'
 import type { TerrainMap } from './terrain'
 import type { Point, StaticObject, Unit } from './types'
 
@@ -232,3 +233,24 @@ export const findNearestFreePosition = (
   }
   return best
 }
+
+// Прямоугольник на экране в пикселях (например, рамка выделения)
+export interface ScreenBox {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+// id юнитов, попавших в рамку на экране. Проверяется точка юнита на экране
+export const unitIdsInsideBox = (
+  units: readonly Unit[], box: ScreenBox, camera: Point, viewport: { width: number, height: number },
+): number[] =>
+  units
+    .filter((unit) => {
+      const point = worldToScreen(unit.position)
+      const x = point.x - camera.x + viewport.width / 2
+      const y = point.y - camera.y + viewport.height / 2 - UNIT_TYPES[unit.type].height / 2
+      return x >= box.left && x <= box.left + box.width && y >= box.top && y <= box.top + box.height
+    })
+    .map((unit) => unit.id)

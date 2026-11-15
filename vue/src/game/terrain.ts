@@ -102,6 +102,52 @@ export const buildTerrainMap = (zones: readonly TerrainZone[]): TerrainMap => {
 // Чистая суша: карта сценариев без зон и значение по умолчанию
 export const EMPTY_TERRAIN: TerrainMap = buildTerrainMap([])
 
+// Прямоугольник одинаковых клеток: результат склейки карты для отрисовки
+export interface TerrainRect {
+  code: number // код клетки (CELL_*)
+  col: number
+  row: number
+  cols: number
+  rows: number
+}
+
+// Склейка карты в прямоугольники: сначала горизонтальные ряды одинаковых клеток,
+// затем соседние ряды того же кода и ширины. Прямоугольники суши тоже попадают
+// в результат - отрисовка пропускает их сама
+export const terrainRects = (map: TerrainMap): TerrainRect[] => {
+  const finished: TerrainRect[] = []
+  const open = new Map<string, TerrainRect>()
+  for (let row = 0; row < TERRAIN_ROWS; row++) {
+    let start = -1
+    let code = -1
+    const extended = new Set<string>()
+    for (let col = 0; col <= TERRAIN_COLS; col++) {
+      const next = col < TERRAIN_COLS ? map.cells[row * TERRAIN_COLS + col] : -1
+      if (next === code) continue
+      if (start >= 0 && code >= 0) {
+        const key = `${code}:${start}:${col - start}`
+        extended.add(key)
+        const rect = open.get(key)
+        if (rect) {
+          rect.rows++
+        } else {
+          open.set(key, { code, col: start, row, cols: col - start, rows: 1 })
+        }
+      }
+      start = col
+      code = next
+    }
+    for (const [key, rect] of open) {
+      if (!extended.has(key)) {
+        finished.push(rect)
+        open.delete(key)
+      }
+    }
+  }
+  for (const rect of open.values()) finished.push(rect)
+  return finished
+}
+
 // Клетка под точкой; за пределами карты - суша
 export const terrainCellAt = (map: TerrainMap, x: number, y: number): number => {
   const col = Math.floor((x + MAP.width / 2) / MAP.cell)
