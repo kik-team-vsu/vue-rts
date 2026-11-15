@@ -1,8 +1,9 @@
+<!-- Компонент для отрисовки ветвей деревьев -->
 <template>
   <div
       v-for="(branch, index) in branches"
       :key="'branch' + index"
-      class="branch"
+      class="tree-branches__branch"
       :style="branch" />
 </template>
 
@@ -16,7 +17,6 @@ const props = defineProps<{
 }>()
 
 const BRANCH_PAIRS = 4
-// угол наклона веток вниз
 const BRANCH_ANGLE = 25
 
 const branches = computed(() => {
@@ -39,17 +39,19 @@ const branches = computed(() => {
 </script>
 
 <style scoped lang="scss">
-.branch {
-  position: absolute;
-  left: 0;
-  height: 4px;
-  margin-top: -2px;
-  border-radius: 2px;
-  transform-origin: 0 50%;
+@use '@/assets/styles/mixins' as *;
 
-  // для выделения веток
-  .selected > & {
-    box-shadow: 0 0 0 2px #fff;
+.tree-branches {
+  &__branch {
+    position: absolute;
+    left: 0;
+    height: 4px;
+    margin-top: -2px;
+    border-radius: 2px;
+    transform-origin: 0 50%;
+
+    // ветки - прямые дети корня game-static-object, выделение ловит селектор по родителю
+    @include when-selected('game-static-object', box-shadow, 0 0 0 $outline-width $selected-color);
   }
 }
 </style>

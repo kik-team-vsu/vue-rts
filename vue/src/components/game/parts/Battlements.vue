@@ -1,9 +1,10 @@
+<!-- Компонент для отрисовки зубчатых стен замка -->
 <template>
   <div
       v-for="(tooth, index) in teeth"
       :key="'tooth' + index"
-      class="face wall"
-      :class="{ dark: tooth.dark }"
+      class="battlements__tooth"
+      :class="{ 'battlements__tooth--dark': tooth.dark }"
       :style="tooth.style" />
 </template>
 
@@ -55,5 +56,20 @@ const teeth = computed(() => {
 </script>
 
 <style scoped lang="scss">
-@use '@/assets/iso-faces';
+@use '@/assets/styles/mixins' as *;
+
+.battlements {
+  // зубцы - прямые дети корня game-static-object, поэтому выделение и стройку
+  // ловят селекторы по родителю внутри миксинов
+  &__tooth {
+    @include face('game-static-object');
+    @include wall;
+    @include when-state('game-static-object', 'constructing', opacity, $ghost-opacity);
+
+    // дальние зубцы темнее
+    &--dark {
+      @include wall(true);
+    }
+  }
+}
 </style>
