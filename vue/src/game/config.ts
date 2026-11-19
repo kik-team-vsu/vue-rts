@@ -4,7 +4,12 @@ import type { ObjectType, StaticObject, Unit, UnitType } from './types'
 export const MAP = { width: 3000, height: 2000, cell: 50 }
 
 // edgePx - зона у края экрана, где камера начинает двигаться
-export const CAMERA = { speedPxPerSecond: 500, edgePx: 50 }
+export const CAMERA = {
+  speedPxPerSecond: 500,
+  edgePx: 50,
+  minZoom: 0.5,
+  maxZoom: 3,
+}
 
 export const OBJECT_TYPES: Record<string, ObjectType> = {
   house: { name: 'Дом', width: 100, height: 70, color: '#a16207' },

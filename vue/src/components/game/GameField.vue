@@ -4,6 +4,7 @@
       class="screen-view"
       @mousedown.left="select(null)"
       @mousedown.middle.prevent="(event) => startDrag(event)"
+      @wheel.prevent="zoomAtCursor"
       @contextmenu.prevent="(event) => moveSelected(event)"
       @mousemove="(event) => saveMouse(event)"
       @mouseleave="() => resetMouse()">
@@ -21,6 +22,7 @@
         <GameObject
             v-for="u in game.units"
             :key="u.id"
+            class="unit"
             :object="u"
             :type="UNIT_TYPES[u.type]"
             :selected="u.id === game.selectedId"
@@ -57,6 +59,7 @@ const selectedUnit = computed<Unit | undefined>(() => store.getters['game/select
 const select = (id: number | null) => store.commit('game/select', id)
 const screenView = ref<HTMLElement | null>(null)
 const camera = reactive({ x: 0, y: 0 })
+const zoom = ref(1)
 const mouse = { x: 0, y: 0, inside: false }
 // стили карты: размер, шаг сетки и сдвиг под камеру
 // translate ставит точку camera в центр экрана: если камера едет вправо, то карта уезжает влево
@@ -64,17 +67,39 @@ const worldStyle = computed(() => ({
   width: game.value.map.width + 'px',
   height: game.value.map.height + 'px',
   backgroundSize: game.value.map.cell + 'px ' + game.value.map.cell + 'px',
-  transform: `translate(calc(-50% - ${camera.x}px), calc(-50% - ${camera.y}px)) ${projection}`,
+  transform: `translate(-50%, -50%) scale(${zoom.value}) translate(${-camera.x}px, ${-camera.y}px) ${projection}`,
 }))
 
 const command = computed<MoveCommand | undefined>(() => store.getters['game/selectedCommand'])
 
-const toWorld = (e: MouseEvent): Point => {
+const offsetFromCenter = (e: MouseEvent): Point => {
   const rect = screenView.value!.getBoundingClientRect()
+  return {
+    x: e.clientX - rect.left - rect.width / 2,
+    y: e.clientY - rect.top - rect.height / 2,
+  }
+}
+
+const toWorld = (e: MouseEvent): Point => {
+  const offset = offsetFromCenter(e)
   return toWorldPoint({
-    x: e.clientX - rect.left - rect.width / 2 + camera.x,
-    y: e.clientY - rect.top - rect.height / 2 + camera.y,
+    x: offset.x / zoom.value + camera.x,
+    y: offset.y / zoom.value + camera.y,
   })
+}
+
+const zoomAtCursor = (e: WheelEvent) => {
+  let delta = e.deltaY
+  if (e.deltaMode === WheelEvent.DOM_DELTA_LINE) delta *= 16
+  if (e.deltaMode === WheelEvent.DOM_DELTA_PAGE) delta *= screenView.value!.clientHeight
+
+  const nextZoom = Math.max(CAMERA.minZoom, Math.min(CAMERA.maxZoom, zoom.value * Math.exp(-delta / 600)))
+  const offset = offsetFromCenter(e)
+  const shift = 1 / zoom.value - 1 / nextZoom
+  camera.x += offset.x * shift
+  camera.y += offset.y * shift
+  zoom.value = nextZoom
+  clampCamera()
 }
 
 const saveMouse = (e: MouseEvent) => {
@@ -129,8 +154,8 @@ const dragCamera = () => {
   if (!dragging) {
     return
   }
-  camera.x -= dragCurrent.x - dragLast.x
-  camera.y -= dragCurrent.y - dragLast.y
+  camera.x -= (dragCurrent.x - dragLast.x) / zoom.value
+  camera.y -= (dragCurrent.y - dragLast.y) / zoom.value
   dragLast = dragCurrent
   clampCamera()
 }
@@ -142,7 +167,7 @@ const moveCamera = (secondsPassed: number) => {
 
   const width = screenView.value.clientWidth
   const height = screenView.value.clientHeight
-  const step = CAMERA.speedPxPerSecond * secondsPassed
+  const step = CAMERA.speedPxPerSecond * secondsPassed / zoom.value
 
   if (mouse.x < CAMERA.edgePx) {
     camera.x -= step
@@ -217,6 +242,10 @@ onUnmounted(() => {
   position: absolute;
   left: 50%;
   top: 50%;
+}
+
+.unit {
+  border-radius: 50%;
 }
 
 .target-mark {
