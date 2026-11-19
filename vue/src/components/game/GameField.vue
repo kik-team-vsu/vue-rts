@@ -9,28 +9,28 @@
       @mouseleave="() => resetMouse()">
 
     <div class="world" :style="worldStyle">
-      <GameObject
-          v-for="o in objects"
-          :key="o.id"
-          :object="o"
-          :type="OBJECT_TYPES[o.type]"
-          :selected="o === selected"
-          @select="selected = o"/>
+      <div class="world-origin">
+        <GameObject
+            v-for="o in objects"
+            :key="o.id"
+            :object="o"
+            :type="OBJECT_TYPES[o.type]"
+            :selected="o === selected"
+            @select="selected = o"/>
 
-      <GameObject
-          v-for="u in units"
-          :key="u.id"
-          class="unit"
-          :object="u"
-          :type="UNIT_TYPES[u.type]"
-          :selected="u === selected"
-          @select="selected = u"/>
+        <GameObject
+            v-for="u in units"
+            :key="u.id"
+            :object="u"
+            :type="UNIT_TYPES[u.type]"
+            :selected="u === selected"
+            @select="selected = u"/>
 
-      <div
-          v-if="selectedUnit?.target"
-          class="target-mark"
-          :style="targetStyle" />
-
+        <div
+            v-if="selectedUnit?.target"
+            class="target-mark"
+            :style="targetStyle" />
+      </div>
     </div>
   </div>
 </template>
@@ -39,7 +39,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import GameObject from './GameObject.vue'
 import { CAMERA, MAP, OBJECT_TYPES, START_OBJECTS, START_UNITS, UNIT_TYPES } from '@/game/config'
-import { toMapPx } from '@/game/coords'
+import { clampToMap, projection, toWorldPoint } from '@/game/coords'
 import type { Point, StaticObject, Unit } from '@/game/types'
 
 // перетаскивание камеры средней кнопкой мыши
@@ -73,16 +73,15 @@ const worldStyle = computed(() => ({
   width: MAP.width + 'px',
   height: MAP.height + 'px',
   backgroundSize: MAP.cell + 'px ' + MAP.cell + 'px',
-  transform: `translate(${-MAP.width / 2 - camera.x}px, ${-MAP.height / 2 - camera.y}px)`,
+  transform: `translate(calc(-50% - ${camera.x}px), calc(-50% - ${camera.y}px)) ${projection}`,
 }))
 
 const targetStyle = computed(() => {
   const target = selectedUnit.value?.target
   if (target) {
-    const point = toMapPx(target)
     return {
-      left: point.x + 'px',
-      top: point.y + 'px',
+      left: target.x + 'px',
+      top: target.y + 'px',
     }
   } else {
     return {}
@@ -91,10 +90,10 @@ const targetStyle = computed(() => {
 
 const toWorld = (e: MouseEvent): Point => {
   const rect = screenView.value!.getBoundingClientRect()
-  return {
+  return toWorldPoint({
     x: e.clientX - rect.left - rect.width / 2 + camera.x,
     y: e.clientY - rect.top - rect.height / 2 + camera.y,
-  }
+  })
 }
 
 const saveMouse = (e: MouseEvent) => {
@@ -115,15 +114,14 @@ const moveSelected = (e: MouseEvent) => {
   }
   const point = toWorld(e)
   // чтобы не уйти за границы карты
-  selectedUnit.value.target = {
-    x: Math.max(-MAP.width / 2, Math.min(MAP.width / 2, point.x)),
-    y: Math.max(-MAP.height / 2, Math.min(MAP.height / 2, point.y)),
-  }
+  selectedUnit.value.target = clampToMap(point, MAP)
 }
 
 const clampCamera = () => {
-  camera.x = Math.max(-MAP.width / 2, Math.min(MAP.width / 2, camera.x))
-  camera.y = Math.max(-MAP.height / 2, Math.min(MAP.height / 2, camera.y))
+  const center = clampToMap(toWorldPoint(camera), MAP)
+  const projected = projection.transformPoint(center)
+  camera.x = projected.x
+  camera.y = projected.y
 }
 
 const initSelect = () => {
@@ -258,8 +256,10 @@ onUnmounted(() => {
     linear-gradient(to bottom, rgba(0, 0, 0, 0.2) 1px, transparent 1px);
 }
 
-.unit {
-  border-radius: 50%;
+.world-origin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
 }
 
 .target-mark {

@@ -8,7 +8,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { toMapPx } from '@/game/coords'
 import type { GameObject, ObjectType } from '@/game/types'
 
 // общий компонент для статичных объектов и юнитов
@@ -26,7 +25,7 @@ const pushEmit = () => emit('select')
 // пересчитывается, когда объект двигается
 const style = computed(() => {
   // position - центр объекта, поэтому вычитаем половину размера
-  const center = toMapPx(props.object.position)
+  const center = props.object.position
   return {
     left: center.x - props.type.width / 2 + 'px',
     top: center.y - props.type.height / 2 + 'px',
