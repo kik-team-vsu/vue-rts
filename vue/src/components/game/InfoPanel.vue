@@ -32,7 +32,7 @@ const typeName = computed(() => {
   if (selected.value) return OBJECT_TYPES[selected.value.type].name
 })
 const unitSpeed = computed(() => unit.value && UNIT_TYPES[unit.value.type].speedPxPerSecond)
-const unitAction = computed(() => unit.value?.target ? 'Движется' : 'Стоит')
+const unitAction = computed(() => store.getters['game/selectedCommand'] ? 'Движется' : 'Стоит')
 </script>
 
 <style scoped lang="scss">

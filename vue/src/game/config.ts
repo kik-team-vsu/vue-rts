@@ -27,9 +27,9 @@ export const START_OBJECTS: StaticObject[] = [
 ]
 
 export const START_UNITS: Unit[] = [
-  { id: 7, type: 'worker', position: { x: 0, y: 0 }, target: null },
-  { id: 8, type: 'worker', position: { x: 60, y: 40 }, target: null },
-  { id: 9, type: 'warrior', position: { x: -100, y: 120 }, target: null },
-  { id: 10, type: 'warrior', position: { x: -150, y: 80 }, target: null },
-  { id: 11, type: 'warrior', position: { x: 100, y: 100 }, target: null },
+  { id: 7, type: 'worker', position: { x: 0, y: 0 } },
+  { id: 8, type: 'worker', position: { x: 60, y: 40 } },
+  { id: 9, type: 'warrior', position: { x: -100, y: 120 } },
+  { id: 10, type: 'warrior', position: { x: -150, y: 80 } },
+  { id: 11, type: 'warrior', position: { x: 100, y: 100 } },
 ]

@@ -27,7 +27,9 @@ export interface StaticObject extends GameObject {
 }
 
 // движущийся объект (юнит)
-export interface Unit extends GameObject {
-  type: string // из UNIT_TYPES
-  target: Point | null // целевая точка при перемещении, null у стоящего объекта
+export type Unit = GameObject
+
+export interface MoveCommand {
+  type: 'move'
+  target: Point
 }

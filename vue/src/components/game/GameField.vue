@@ -27,9 +27,9 @@
             @select="select(u.id)"/>
 
         <div
-            v-if="selectedUnit?.target"
+            v-if="command"
             class="target-mark"
-            :style="targetStyle" />
+            :style="{ left: command.target.x + 'px', top: command.target.y + 'px' }" />
       </div>
     </div>
   </div>
@@ -42,7 +42,7 @@ import type { GameState } from '@/store/game'
 import GameObject from './GameObject.vue'
 import { CAMERA, OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
 import { clampToMap, projection, toWorldPoint } from '@/game/coords'
-import type { Point, Unit } from '@/game/types'
+import type { MoveCommand, Point, Unit } from '@/game/types'
 
 // перетаскивание камеры средней кнопкой мыши
 // dragLast - позиция мыши, до которой камера уже сдвинута, dragCurrent - последняя позиция мыши
@@ -67,17 +67,7 @@ const worldStyle = computed(() => ({
   transform: `translate(calc(-50% - ${camera.x}px), calc(-50% - ${camera.y}px)) ${projection}`,
 }))
 
-const targetStyle = computed(() => {
-  const target = selectedUnit.value?.target
-  if (target) {
-    return {
-      left: target.x + 'px',
-      top: target.y + 'px',
-    }
-  } else {
-    return {}
-  }
-})
+const command = computed<MoveCommand | undefined>(() => store.getters['game/selectedCommand'])
 
 const toWorld = (e: MouseEvent): Point => {
   const rect = screenView.value!.getBoundingClientRect()
