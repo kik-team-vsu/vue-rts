@@ -20,52 +20,19 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useStore } from 'vuex'
 import { OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
 import type { StaticObject, Unit } from '@/game/types'
 
-const props = defineProps<{
-  selected: StaticObject | Unit | null
-}>()
-
-const unit = computed(() => {
-  const selectedObject = props.selected
-  if (!selectedObject) {
-    return null
-  }
-  // есть property target есть - значит это юнит
-  if ('target' in selectedObject) {
-    return selectedObject
-  }
-  return null
-})
-
-// определяем имя объекта для отображения
+const store = useStore()
+const selected = computed<Unit | StaticObject | undefined>(() => store.getters['game/selected'])
+const unit = computed<Unit | undefined>(() => store.getters['game/selectedUnit'])
 const typeName = computed(() => {
-  if (unit.value) {
-    return UNIT_TYPES[unit.value.type].name
-  }
-  if (props.selected) {
-    return OBJECT_TYPES[props.selected.type].name
-  }
-  return ''
+  if (unit.value) return UNIT_TYPES[unit.value.type].name
+  if (selected.value) return OBJECT_TYPES[selected.value.type].name
 })
-
-const unitSpeed = computed(() => {
-  if (unit.value) {
-    return UNIT_TYPES[unit.value.type].speedPxPerSecond
-  }
-})
-
-const unitAction = computed(() => {
-  if (unit.value) {
-    if (unit.value.target) {
-      return 'Движется'
-    }
-    else {
-      return 'Стоит'
-    }
-  }
-})
+const unitSpeed = computed(() => unit.value && UNIT_TYPES[unit.value.type].speedPxPerSecond)
+const unitAction = computed(() => unit.value?.target ? 'Движется' : 'Стоит')
 </script>
 
 <style scoped lang="scss">

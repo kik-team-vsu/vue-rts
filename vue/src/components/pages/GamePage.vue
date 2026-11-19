@@ -1,17 +1,16 @@
 <template>
   <div class="game-page">
-    <GameField v-model:selected="selected" />
-    <InfoPanel :selected="selected" />
+    <GameField />
+    <InfoPanel />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { useStore } from 'vuex'
 import GameField from '../game/GameField.vue'
 import InfoPanel from '../game/InfoPanel.vue'
-import type { StaticObject, Unit } from '@/game/types'
 
-const selected = ref<StaticObject | Unit | null>(null)
+useStore().commit('game/reset')
 </script>
 
 <style scoped>

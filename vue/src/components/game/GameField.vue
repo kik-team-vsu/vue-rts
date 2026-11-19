@@ -2,7 +2,7 @@
   <div
       ref="screenView"
       class="screen-view"
-      @mousedown.left="() => initSelect()"
+      @mousedown.left="select(null)"
       @mousedown.middle.prevent="(event) => startDrag(event)"
       @contextmenu.prevent="(event) => moveSelected(event)"
       @mousemove="(event) => saveMouse(event)"
@@ -11,20 +11,20 @@
     <div class="world" :style="worldStyle">
       <div class="world-origin">
         <GameObject
-            v-for="o in objects"
+            v-for="o in game.objects"
             :key="o.id"
             :object="o"
             :type="OBJECT_TYPES[o.type]"
-            :selected="o === selected"
-            @select="selected = o"/>
+            :selected="o.id === game.selectedId"
+            @select="select(o.id)"/>
 
         <GameObject
-            v-for="u in units"
+            v-for="u in game.units"
             :key="u.id"
             :object="u"
             :type="UNIT_TYPES[u.type]"
-            :selected="u === selected"
-            @select="selected = u"/>
+            :selected="u.id === game.selectedId"
+            @select="select(u.id)"/>
 
         <div
             v-if="selectedUnit?.target"
@@ -37,10 +37,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { useStore } from 'vuex'
+import type { GameState } from '@/store/game'
 import GameObject from './GameObject.vue'
-import { CAMERA, MAP, OBJECT_TYPES, START_OBJECTS, START_UNITS, UNIT_TYPES } from '@/game/config'
+import { CAMERA, OBJECT_TYPES, UNIT_TYPES } from '@/game/config'
 import { clampToMap, projection, toWorldPoint } from '@/game/coords'
-import type { Point, StaticObject, Unit } from '@/game/types'
+import type { Point, Unit } from '@/game/types'
 
 // перетаскивание камеры средней кнопкой мыши
 // dragLast - позиция мыши, до которой камера уже сдвинута, dragCurrent - последняя позиция мыши
@@ -49,30 +51,19 @@ let dragging = false
 let dragLast: Point = { x: 0, y: 0 }
 let dragCurrent: Point = { x: 0, y: 0 }
 
-const selected = defineModel<StaticObject | Unit | null>('selected', { default: null })
+const store = useStore<{ game: GameState }>()
+const game = computed(() => store.state.game)
+const selectedUnit = computed<Unit | undefined>(() => store.getters['game/selectedUnit'])
+const select = (id: number | null) => store.commit('game/select', id)
 const screenView = ref<HTMLElement | null>(null)
 const camera = reactive({ x: 0, y: 0 })
 const mouse = { x: 0, y: 0, inside: false }
-const objects = ref<StaticObject[]>(structuredClone(START_OBJECTS))
-const units = ref<Unit[]>(structuredClone(START_UNITS))
-
-const selectedUnit = computed(() => {
-  const selectedValue = selected.value
-  if (!selectedValue) {
-    return null
-  }
-  if ('target' in selectedValue) {
-    return selectedValue
-  }
-  return null
-})
-
 // стили карты: размер, шаг сетки и сдвиг под камеру
 // translate ставит точку camera в центр экрана: если камера едет вправо, то карта уезжает влево
 const worldStyle = computed(() => ({
-  width: MAP.width + 'px',
-  height: MAP.height + 'px',
-  backgroundSize: MAP.cell + 'px ' + MAP.cell + 'px',
+  width: game.value.map.width + 'px',
+  height: game.value.map.height + 'px',
+  backgroundSize: game.value.map.cell + 'px ' + game.value.map.cell + 'px',
   transform: `translate(calc(-50% - ${camera.x}px), calc(-50% - ${camera.y}px)) ${projection}`,
 }))
 
@@ -113,19 +104,14 @@ const moveSelected = (e: MouseEvent) => {
     return
   }
   const point = toWorld(e)
-  // чтобы не уйти за границы карты
-  selectedUnit.value.target = clampToMap(point, MAP)
+  store.commit('game/moveTo', { unitId: selectedUnit.value.id, target: point })
 }
 
 const clampCamera = () => {
-  const center = clampToMap(toWorldPoint(camera), MAP)
+  const center = clampToMap(toWorldPoint(camera), game.value.map)
   const projected = projection.transformPoint(center)
   camera.x = projected.x
   camera.y = projected.y
-}
-
-const initSelect = () => {
-  selected.value = null
 }
 
 const startDrag = (e: MouseEvent) => {
@@ -184,25 +170,6 @@ const moveCamera = (secondsPassed: number) => {
   clampCamera()
 }
 
-const moveUnits = (secondsPassed: number) => {
-  for (const u of units.value) {
-    if (u.target) {
-      const dx = u.target.x - u.position.x
-      const dy = u.target.y - u.position.y
-      const dist = Math.hypot(dx, dy)
-      const step = UNIT_TYPES[u.type].speedPxPerSecond * secondsPassed
-
-      if (dist <= step) {
-        u.position = u.target
-        u.target = null
-      } else {
-        u.position.x += (dx / dist) * step
-        u.position.y += (dy / dist) * step
-      }
-    }
-  }
-}
-
 let frameId = 0
 let lastTime = 0
 
@@ -215,7 +182,7 @@ const tick = (time: number) => {
 
   dragCamera()
   moveCamera(secondsPassed)
-  moveUnits(secondsPassed)
+  store.commit('game/advanceFrame', secondsPassed)
 
   frameId = requestAnimationFrame(tick)
 }
