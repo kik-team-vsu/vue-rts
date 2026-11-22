@@ -1,10 +1,16 @@
 import { MAP, START_OBJECTS, START_UNITS, UNIT_TYPES } from '@/game/config'
 import { clampToMap } from '@/game/coords'
-import type { MoveCommand, Point } from '@/game/types'
+import type {MoveCommand, Point, Terrain} from '@/game/types'
 
 function initialState() {
   return {
-    map: { ...MAP },
+    map: {
+      ...MAP,
+      terrain: Array.from(
+          { length: MAP.height / MAP.cell },
+          () => Array<Terrain>(MAP.width / MAP.cell).fill('land'),
+      ),
+    },
     objects: structuredClone(START_OBJECTS),
     units: structuredClone(START_UNITS),
     commands: {} as Partial<Record<number, MoveCommand>>,
