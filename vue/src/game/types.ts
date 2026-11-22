@@ -30,7 +30,9 @@ export interface StaticObject extends GameObject {
 }
 
 // движущийся объект (юнит)
-export type Unit = GameObject
+export interface Unit extends GameObject {
+  groupId: number
+}
 
 export interface MoveCommand {
   type: 'move'
