@@ -35,3 +35,5 @@ export interface MoveCommand {
   type: 'move'
   target: Point
 }
+
+export type Terrain = 'land' | 'water'
