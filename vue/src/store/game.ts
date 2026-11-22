@@ -1,6 +1,6 @@
 import {MAP, OBJECT_TYPES, START_OBJECTS, START_UNITS, UNIT_TYPES} from '@/game/config'
 import { clampToMap } from '@/game/coords'
-import type {GameObject, MoveCommand, ObjectType, Point, Terrain} from '@/game/types'
+import type {GameObject, MoveCommand, ObjectType, Point, StaticObject, Terrain, UnitType} from '@/game/types'
 
 function initialState() {
   return {
@@ -50,6 +50,29 @@ function canPlace(
   const occupiedByUnit = state.units.some(unit => overlaps(unit, OBJECT_TYPES[unit.type]))
 
   return !occupiedByObject || !occupiedByUnit
+}
+
+function findSpawnPoint(state: GameState, building: StaticObject, unitType: UnitType) {
+  const { cell } = state.map
+  const size = OBJECT_TYPES[building.type]
+  const left = building.position.x - size.width / 2
+  const top = building.position.y - size.height / 2
+  const cols = size.width / cell
+  const rows = size.height / cell
+  for (let row = -1; row <= rows; row++) {
+    for (let col = -1; col <= cols; col++) {
+      if (row >= 0 && row < rows && col >= 0 && col < cols) continue
+
+      const position = {
+        x: left + (col + 0.5) * cell,
+        y: top + (row + 0.5) * cell,
+      }
+
+      if (canPlace(state, position, unitType, unitType.terrain)) {
+        return position
+      }
+    }
+  }
 }
 
 const selectedUnit = (state: GameState) => state.units.find(unit => unit.id === state.selectedId)
