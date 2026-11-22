@@ -20,8 +20,8 @@ export const OBJECT_TYPES: Record<string, ObjectType> = {
 }
 
 export const UNIT_TYPES: Record<string, UnitType> = {
-  worker: { name: 'Рабочий', width: 24, height: 24, color: '#0000ff', speedPxPerSecond: 80 },
-  warrior: { name: 'Воин', width: 32, height: 32, color: '#ff0000', speedPxPerSecond: 150 },
+  worker: { name: 'Рабочий', width: 24, height: 24, color: '#0000ff', speedPxPerSecond: 80, terrain: 'land' },
+  warrior: { name: 'Воин', width: 32, height: 32, color: '#ff0000', speedPxPerSecond: 150, terrain: 'land' },
 }
 
 export const START_OBJECTS: StaticObject[] = [

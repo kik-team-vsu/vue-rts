@@ -13,6 +13,7 @@ export interface ObjectType {
 
 export interface UnitType extends ObjectType {
   speedPxPerSecond: number
+  terrain: Terrain
 }
 
 // любой игровой объект
