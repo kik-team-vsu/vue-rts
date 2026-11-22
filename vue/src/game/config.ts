@@ -3,6 +3,8 @@ import type { ObjectType, StaticObject, Unit, UnitType } from './types'
 // размер карты и cell - размер ячейики сетки в пикселях
 export const MAP = { width: 3000, height: 2000, cell: 50 }
 
+export const GROUPS = [1, 2]
+
 // edgePx - зона у края экрана, где камера начинает двигаться
 export const CAMERA = {
   speedPxPerSecond: 500,
@@ -12,9 +14,9 @@ export const CAMERA = {
 }
 
 export const OBJECT_TYPES: Record<string, ObjectType> = {
-  house: { name: 'Дом', width: 100, height: 70, color: '#a16207' },
+  house: { name: 'Дом', width: 100, height: 70, color: '#a16207', spawnTypes: ['worker'] },
   tree: { name: 'Дерево', width: 30, height: 80, color: '#00ff00' },
-  castle: { name: 'Замок', width: 200, height: 160, color: '#6b7280' },
+  castle: { name: 'Замок', width: 200, height: 160, color: '#6b7280', spawnTypes: ['warrior'] },
 }
 
 export const UNIT_TYPES: Record<string, UnitType> = {
