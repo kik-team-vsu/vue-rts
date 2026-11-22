@@ -8,6 +8,7 @@ export interface ObjectType {
   width: number
   height: number
   color: string
+  groupId?: number
 }
 
 export interface UnitType extends ObjectType {
