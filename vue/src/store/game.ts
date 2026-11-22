@@ -1,6 +1,11 @@
-import {MAP, OBJECT_TYPES, START_OBJECTS, START_UNITS, UNIT_TYPES} from '@/game/config'
+import {GROUPS, MAP, OBJECT_TYPES, START_OBJECTS, START_UNITS, UNIT_TYPES} from '@/game/config'
 import { clampToMap } from '@/game/coords'
 import type {GameObject, MoveCommand, ObjectType, Point, StaticObject, Terrain, Unit, UnitType} from '@/game/types'
+
+interface BuildPlan {
+  type: string
+  groupId: number
+}
 
 function initialState() {
   return {
@@ -16,6 +21,7 @@ function initialState() {
     commands: {} as Partial<Record<number, MoveCommand>>,
     selectedId: null as number | null,
     nextId: Math.max(...[...START_OBJECTS, ...START_UNITS].map(object => object.id)) + 1,
+    buildPlan: null as BuildPlan | null,
   }
 }
 
@@ -107,8 +113,10 @@ export default {
     reset(state: GameState) {
       Object.assign(state, initialState())
     },
+
     select(state: GameState, id: number | null) {
       state.selectedId = id
+      state.buildPlan = null
     },
     moveTo(state: GameState, { unitId, target }: { unitId: number; target: Point }) {
       const unit = state.units.find(unit => unit.id === unitId)
@@ -141,6 +149,44 @@ export default {
         position,
         groupId: building.groupId,
       }))
+    },
+    startBuilding(state: GameState, plan: BuildPlan) {
+      if (!OBJECT_TYPES[plan.type]?.spawnTypes)
+        return
+
+      if (!GROUPS.includes(plan.groupId))
+        return
+
+      state.selectedId = null
+      state.buildPlan = plan
+    },
+
+    placeBuilding(state: GameState, point: Point) {
+      const plan = state.buildPlan
+      if (!plan)
+        return
+
+      const size = OBJECT_TYPES[plan.type]
+      const { width, height, cell } = state.map
+      const col = Math.floor((point.x + width / 2) / cell)
+      const row = Math.floor((point.y + height / 2) / cell)
+      const position = {
+        x: col * cell - width / 2 + size.width / 2,
+        y: row * cell - height / 2 + size.height / 2,
+      }
+
+      if (!canPlace(state, position, size, 'land'))
+        return
+
+      const building = {
+        id: state.nextId++,
+        type: plan.type,
+        groupId: plan.groupId,
+        position,
+      }
+      state.objects.push(building)
+      state.selectedId = building.id
+      state.buildPlan = null
     },
     advanceFrame(state: GameState, secondsPassed: number) {
       for (const unit of state.units) {

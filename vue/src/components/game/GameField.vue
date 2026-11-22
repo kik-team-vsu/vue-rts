@@ -2,7 +2,8 @@
   <div
       ref="screenView"
       class="screen-view"
-      @mousedown.left="select(null)"
+      :class="{ building: game.buildPlan }"
+      @mousedown.left="onMapPress"
       @mousedown.middle.prevent="(event) => startDrag(event)"
       @wheel.prevent="zoomAtCursor"
       @contextmenu.prevent="(event) => moveSelected(event)"
@@ -86,6 +87,14 @@ const toWorld = (e: MouseEvent): Point => {
     x: offset.x / zoom.value + camera.x,
     y: offset.y / zoom.value + camera.y,
   })
+}
+
+const onMapPress = (e: MouseEvent) => {
+  if (game.value.buildPlan) {
+    store.commit('game/placeBuilding', toWorld(e))
+  } else {
+    select(null)
+  }
 }
 
 const zoomAtCursor = (e: WheelEvent) => {
@@ -255,6 +264,14 @@ onUnmounted(() => {
   margin: -8px 0 0 -8px;
   border: 2px solid #fff;
   border-radius: 50%;
+  pointer-events: none;
+}
+
+.building {
+  cursor: crosshair;
+}
+
+.building .world-origin {
   pointer-events: none;
 }
 </style>
