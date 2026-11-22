@@ -41,6 +41,13 @@ export default {
         state.commands[unitId] = { type: 'move', target: clampToMap(target, state.map) }
       }
     },
+    destroySelectedUnit(state:GameState) {
+      const index = state.units.findIndex(unit => unit.id === state.selectedId)
+      if (index < 0) return
+      const [unit] = state.units.splice(index, 1)
+      delete state.commands[unit.id]
+      state.selectedId = null
+    },
     advanceFrame(state: GameState, secondsPassed: number) {
       for (const unit of state.units) {
         const command = state.commands[unit.id]

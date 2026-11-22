@@ -8,6 +8,7 @@
         <div>Скорость: {{ unitSpeed }}</div>
         <div>{{ unitAction }}</div>
       </template>
+      <button @click="store.commit('game/destroySelectedUnit')">Самоуничтожение</button>
     </template>
     <template v-else>
       <div>ЛКМ — выбрать</div>
@@ -46,7 +47,7 @@ const unitAction = computed(() => store.getters['game/selectedCommand'] ? 'Дв�
   background: rgba(0, 0, 0, 0.7);
   color: #fff;
   border-radius: 6px;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .name {
