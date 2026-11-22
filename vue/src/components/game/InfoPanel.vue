@@ -8,7 +8,7 @@
         <div>Скорость: {{ unitSpeed }}</div>
         <div>{{ unitAction }}</div>
       </template>
-      <button @click="store.commit('game/destroySelectedUnit')">Самоуничтожение</button>
+      <button v-if="unit" @click="store.commit('game/destroySelectedUnit')">Самоуничтожение</button>
     </template>
     <template v-else>
       <div>ЛКМ — выбрать</div>
