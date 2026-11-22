@@ -8,7 +8,7 @@ export interface ObjectType {
   width: number
   height: number
   color: string
-  groupId?: number
+  spawnTypes?: string[]
 }
 
 export interface UnitType extends ObjectType {
@@ -20,6 +20,7 @@ export interface GameObject {
   id: number
   type: string
   position: Point
+  groupId?: number
 }
 
 // статичный объект на карте
