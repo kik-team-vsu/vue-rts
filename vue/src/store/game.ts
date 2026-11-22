@@ -1,6 +1,6 @@
-import { MAP, START_OBJECTS, START_UNITS, UNIT_TYPES } from '@/game/config'
+import {MAP, OBJECT_TYPES, START_OBJECTS, START_UNITS, UNIT_TYPES} from '@/game/config'
 import { clampToMap } from '@/game/coords'
-import type {MoveCommand, Point, Terrain} from '@/game/types'
+import type {GameObject, MoveCommand, ObjectType, Point, Terrain} from '@/game/types'
 
 function initialState() {
   return {
@@ -19,6 +19,38 @@ function initialState() {
 }
 
 export type GameState = ReturnType<typeof initialState>
+
+function canPlace(
+    state: GameState,
+    position: Point,
+    size:ObjectType,
+    terrain: Terrain,
+): boolean {
+
+  const { map } = state
+  const left = position.x + map.width / 2 - size.width / 2
+  const right = left + size.width
+  const top = position.y + map.height / 2 - size.height / 2
+  const bottom = top + size.height
+
+  if (left < 0 || top < 0 || right > map.width || bottom > map.height) {
+    return false
+  }
+
+  for (let row = Math.floor(top / map.cell); row < Math.ceil(bottom / map.cell); row++) {
+    for (let col = Math.floor(left / map.cell); col < Math.ceil(right / map.cell); col++) {
+      if (map.terrain[row][col] !== terrain) return false
+    }
+  }
+
+  const overlaps = (object: GameObject, otherSize: ObjectType) =>
+      Math.abs(object.position.x - position.x) < (otherSize.width - size.width) / 2 &&
+      Math.abs(object.position.y - position.y) < (otherSize.height - size.height) / 2
+  const occupiedByObject = state.objects.some(object => overlaps(object, OBJECT_TYPES[object.type]))
+  const occupiedByUnit = state.units.some(unit => overlaps(unit, OBJECT_TYPES[unit.type]))
+
+  return !occupiedByObject || !occupiedByUnit
+}
 
 const selectedUnit = (state: GameState) => state.units.find(unit => unit.id === state.selectedId)
 
