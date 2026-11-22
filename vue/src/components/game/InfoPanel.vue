@@ -9,6 +9,14 @@
         <div>{{ unitAction }}</div>
       </template>
       <button v-if="unit" @click="store.commit('game/destroySelectedUnit')">Самоуничтожение</button>
+      <button
+          v-for="type in selectedType?.spawnTypes"
+          :key="type"
+          type="button"
+          @click="store.commit('game/spawnUnit', type)"
+          >
+        Создать: {{UNIT_TYPES[type].name}}
+      </button>
     </template>
     <template v-else>
       <div>ЛКМ — выбрать</div>
@@ -35,6 +43,8 @@ const typeName = computed(() => {
 })
 const unitSpeed = computed(() => unit.value && UNIT_TYPES[unit.value.type].speedPxPerSecond)
 const unitAction = computed(() => store.getters['game/selectedCommand'] ? 'Движется' : 'Стоит')
+const unitType = computed(() => unit.value && UNIT_TYPES[unit.value.type])
+const selectedType = computed(() => unitType.value ?? (selected.value && OBJECT_TYPES[selected.value.type]))
 </script>
 
 <style scoped lang="scss">
