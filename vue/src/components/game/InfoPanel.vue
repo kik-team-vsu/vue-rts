@@ -19,6 +19,10 @@
         <div>Жизни: {{ selected.hp }} / {{ buildingType.maxHp }}</div>
         <div>Размер: {{ buildingType.size }}×{{ buildingType.size }}</div>
       </template>
+      <template v-else-if="depositResource">
+        <div>Ресурс: {{ RESOURCE_NAMES[depositResource] }}</div>
+        <div>Запас: {{ selected.amount }} / {{ depositType.resourceAmount }}</div>
+      </template>
     </template>
     <template v-else-if="selectedUnits.length > 1">
       <div class="info-panel__name">Выбрано юнитов: {{ selectedUnits.length }}</div>
@@ -90,6 +94,27 @@ const buildingType = computed(() => {
   }
   return null
 })
+
+// характеристики месторождения (объекта с ресурсом): показываем тип ресурса и запас
+const depositType = computed(() => {
+  if (unit.value || !selected.value) {
+    return null
+  }
+  const type = OBJECT_TYPES[selected.value.type]
+  if ('resource' in type && type.resource) {
+    return type
+  }
+  return null
+})
+
+const depositResource = computed(() => depositType.value?.resource ?? null)
+
+const RESOURCE_NAMES = {
+  wood: 'Древесина',
+  stone: 'Камень',
+  ore: 'Руда',
+  gold: 'Золото',
+}
 
 const groupName = computed(() => {
   if (selected.value && selected.value.group > 0) {

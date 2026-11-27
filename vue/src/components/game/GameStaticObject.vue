@@ -11,7 +11,9 @@
     <div class="game-static-object__top" :style="faces.top" />
     <Battlements v-if="type.roofHeight && type.roofType === 'battlements'" :type="type" />
     <PyramidRoof v-else-if="type.roofHeight" :type="type" />
-    <TreeBranches v-if="type.branchColor" :type="type" />
+    <GroveTrees v-if="type.shape === 'grove'" :type="type" />
+    <RockMound v-else-if="type.shape === 'rocks'" :type="type" />
+    <TreeBranches v-else-if="type.branchColor" :type="type" />
     <ProductionBar
         v-if="production"
         :progress="production.elapsed / production.duration"
@@ -41,6 +43,8 @@ import ProductionBar from './ProductionBar.vue'
 import Battlements from './parts/Battlements.vue'
 import PyramidRoof from './parts/PyramidRoof.vue'
 import TreeBranches from './parts/TreeBranches.vue'
+import GroveTrees from './parts/GroveTrees.vue'
+import RockMound from './parts/RockMound.vue'
 import { depthZIndex, ISO_SCALE, worldToScreen } from '@/game/coords'
 import type { BuildingType, ObjectType, ProductionJob, StaticObject } from '@/game/types'
 
@@ -54,8 +58,8 @@ const props = defineProps<{
 
 const store = useStore()
 
-// модификатор типа на корне: у мостов с настилом верх получает рисунок досок
-const typeClass = computed(() => (props.type.image ? `game-static-object--${props.object.type}` : null))
+// модификатор типа на корне: у мостов настил, у месторождождений - вкрапления руды и золота на камнях
+const typeClass = computed(() => `game-static-object--${props.object.type}`)
 
 // что здание создаёт сейчас: полоска производства над полоской жизней
 const production = computed<ProductionJob | null>(() => store.getters['world/getProductionByBuilding'](props.object.id))
@@ -94,7 +98,8 @@ const style = computed(() => {
 })
 
 const faces = computed(() => {
-  const { width, height, color } = props.type
+  const { width, height } = props.type
+  const color = props.type.groundColor ?? props.type.color
   const wallHeight = props.type.wallHeight ?? 0
   const left = worldToScreen({ x: -width / 2, y: height / 2 })
   const front = worldToScreen({ x: width / 2, y: height / 2 })

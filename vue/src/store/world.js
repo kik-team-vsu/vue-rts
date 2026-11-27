@@ -116,7 +116,12 @@ export default {
     mutations: {
         // Расстановка и местность сценария
         [MUTATIONS.LOAD]: (state, scenario) => {
-            state.objects = structuredClone(scenario.objects)
+            state.objects = structuredClone(scenario.objects).map((object) => {
+                const type = OBJECT_TYPES[object.type]
+                return type?.resource && object.amount === undefined
+                    ? {...object, amount: type.resourceAmount}
+                    : object
+            })
             state.units = structuredClone(scenario.units)
             state.nextObjectId = nextId(scenario.objects, scenario.units)
             state.terrainMap = buildTerrainMap(scenario.terrain)
