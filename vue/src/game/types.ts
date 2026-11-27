@@ -54,6 +54,7 @@ export interface UnitType extends ObjectType {
   maxPerGroup: number // максимум живых юнитов этого типа у одной группы: спавн останавливается
   terrain?: TerrainType | 'both' // где юнит может ходить, по умолчанию 'both' - везде
   shape?: 'human' | 'boat' | 'warship' // как рисовать юнит, по умолчанию 'human' - человечек
+  weapon?: 'axe' | 'hammer' // инструмент в руке человечка. Если не задан, то рука пустая
   footprint?: number // сторона квадрата столкновений; по умолчанию width (у длинных кораблей уже спрайта)
 }
 

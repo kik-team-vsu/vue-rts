@@ -10,6 +10,7 @@
         <div>Жизни: {{ unit.hp }} / {{ unitType.maxHp }}</div>
         <div>Сила: {{ unitType.strength }}</div>
         <div>Скорость атаки: {{ unitType.attackSpeed }}</div>
+        <div v-if="unitWeapon">Орудие: {{ unitWeapon }}</div>
         <div>Скорость: {{ unitSpeed }}</div>
         <div>Местность: {{ unitTerrain }}</div>
         <div>{{ unitAction }}</div>
@@ -114,6 +115,18 @@ const TERRAIN_NAMES = {
 const unitTerrain = computed(() => {
   if (unitType.value) {
     return TERRAIN_NAMES[unitType.value.terrain ?? 'both']
+  }
+})
+
+const WEAPON_NAMES = {
+  axe: 'Топор',
+  hammer: 'Молоток',
+}
+
+const unitWeapon = computed(() => {
+  const weapon = unitType.value?.weapon
+  if (weapon) {
+    return WEAPON_NAMES[weapon]
   }
 })
 
