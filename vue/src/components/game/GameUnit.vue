@@ -14,9 +14,10 @@
       <div class="game-unit__leg game-unit__leg--right" />
       <div class="game-unit__body" :style="{ backgroundColor: type.color }" />
       <div class="game-unit__arm game-unit__arm--left" />
-      <!-- в правой руке топор: этой рукой юнит бьёт -->
+      <!-- в правой руке инструмент из типа юнита: этой рукой юнит бьёт. Без weapon рука пустая -->
       <div class="game-unit__arm game-unit__arm--right">
-        <div class="game-unit__axe" />
+        <div v-if="weapon === 'hammer'" class="game-unit__hammer" />
+        <div v-else-if="weapon === 'axe'" class="game-unit__axe" />
       </div>
       <div class="game-unit__head" :style="{ backgroundColor: type.color }" />
     </template>
@@ -133,6 +134,9 @@ const shape = computed(() => props.type.shape ?? 'human')
 
 // модификатор формы на корне: анимации судов вешаются на класс game-unit--boat/--warship
 const shapeClass = computed(() => (shape.value === 'human' ? null : `game-unit--${shape.value}`))
+
+// инструмент в руке: молоток у рабочего, топор у воина; без поля рука пустая
+const weapon = computed(() => props.type.weapon)
 
 // Полоска жизней у больших кораблей шире, у пехоты остаётся прежней
 const barWidth = computed(() => Math.round(Math.min(84, Math.max(36, props.type.width * 0.6))))
@@ -251,9 +255,9 @@ $leg-step: 25deg;
     }
   }
 
-  // Топор в правой руке: рукоять из-под кулака, лезвие у конца.
-  // Рука вращается вокруг плеча - топор идёт по дуге удара
-  &__axe {
+  // Инструмент в руке, общая часть: рукоять
+  &__axe,
+  &__hammer {
     position: absolute;
     left: 0;
     bottom: -8px;
@@ -261,19 +265,30 @@ $leg-step: 25deg;
     height: 15px;
     border-radius: 2px;
     background: #7c4a1e;
+  }
 
-    // лезвие: стальной полумесяц, режущая кромка наружу от тела -
-    // она ведёт взмах, когда рука бьёт поперёк тела
-    &::after {
-      content: '';
-      position: absolute;
-      left: -7px;
-      bottom: -1px;
-      width: 9px;
-      height: 8px;
-      border-radius: 70% 20% 20% 70%;
-      background: linear-gradient(to right, #e5e7eb, #9ca3af);
-    }
+  // лезвие топора
+  &__axe::after {
+    content: '';
+    position: absolute;
+    left: -7px;
+    bottom: -1px;
+    width: 9px;
+    height: 8px;
+    border-radius: 70% 20% 20% 70%;
+    background: linear-gradient(to right, #e5e7eb, #9ca3af);
+  }
+
+  // боёк молотка
+  &__hammer::after {
+    content: '';
+    position: absolute;
+    left: -4px;
+    bottom: -1px;
+    width: 12px;
+    height: 7px;
+    border-radius: 2px;
+    background: linear-gradient(to bottom, #e5e7eb, #9ca3af);
   }
 
   &__body,
