@@ -8,6 +8,9 @@ export interface Point {
 // тип местности; горы непроходимы для всех юнитов
 export type TerrainType = 'land' | 'water' | 'mountain'
 
+// ресурсы, которые добывают из месторождений
+export type ResourceType = 'wood' | 'stone' | 'ore' | 'gold'
+
 // тип зоны на карте: озеро и река (оба - вода для юнитов) или горы;
 // песчаный берег не задаётся вручную - он генерируется вокруг воды при сборке карты
 export type TerrainZoneType = 'lake' | 'river' | 'mountain'
@@ -32,8 +35,12 @@ export interface ObjectType {
   roofColor?: string
   roofType?: 'pyramid' | 'battlements'
   branchColor?: string   // цвет веток (если применим)
+  groundColor?: string    // цвет площадки на земле
   image?: string         // картинка верха объекта вместо цвета: имя файла из assets (настил моста)
   passable?: boolean     // true — по объекту можно ходить: он не препятствие, вода под ним проходима (мост)
+  resource?: ResourceType // какой ресурс добывается из объекта (месторождение)
+  resourceAmount?: number // начальный запас ресурса в месторождении
+  shape?: 'grove' | 'rocks' // как рисовать месторождение: роща деревьев или куча камней
 }
 
 // Здание: квадрат size × size клеток
@@ -54,6 +61,7 @@ export interface UnitType extends ObjectType {
   maxPerGroup: number // максимум живых юнитов этого типа у одной группы: спавн останавливается
   terrain?: TerrainType | 'both' // где юнит может ходить, по умолчанию 'both' - везде
   shape?: 'human' | 'boat' | 'warship' // как рисовать юнит, по умолчанию 'human' - человечек
+  weapon?: 'axe' | 'hammer' // инструмент в руке человечка. Если не задан, то рука пустая
   footprint?: number // сторона квадрата столкновений; по умолчанию width (у длинных кораблей уже спрайта)
 }
 
@@ -86,6 +94,7 @@ export interface GameObject {
 export interface StaticObject extends GameObject {
   type: string // из OBJECT_TYPES
   hp?: number // только у зданий
+  amount?: number // оставшийся запас ресурса месторождения
 }
 
 // Движущийся объект (юнит)

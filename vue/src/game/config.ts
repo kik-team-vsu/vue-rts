@@ -15,6 +15,7 @@ const WATER_ZONES: TerrainZone[] = [
 const MOUNTAINS_ZONES: TerrainZone[] = [
   { type: 'mountain', col: 5, row: 5, cols: 10, rows: 10 },
   { type: 'mountain', col: 15, row: 55, cols: 25, rows: 5 },
+  { type: 'mountain', col: 55, row: 0, cols: 5, rows: 15 },
 ]
 
 // зоны местности: озёра и реки - вода, горы - непроходимы, всё вне зон - суша
@@ -28,18 +29,25 @@ const cells = (count: number) => count * MAP.cell
 
 export const OBJECT_TYPES: Record<string, ObjectType | BuildingType> = {
   house: { name: 'Дом', width: cells(2), height: cells(2), color: '#a16207', wallHeight: 50, roofHeight: 40, roofColor: '#b91c1c', size: 2, maxHp: 200, spawns: ['worker'], maxPerGroup: 3, buildSeconds: 6 },
-  tree: { name: 'Дерево', width: 10, height: 10, color: '#7c4a1e', wallHeight: 80, branchColor: '#16a34a' },
   castle: { name: 'Замок', width: cells(4), height: cells(4), color: '#6b7280', wallHeight: 110, roofHeight: 18, roofType: 'battlements', size: 4, maxHp: 500, spawns: ['worker', 'warrior'], maxPerGroup: 1, buildSeconds: 12 },
   tower: { name: 'Башня', width: cells(1), height: cells(1), color: '#78716c', wallHeight: 90, roofHeight: 30, roofColor: '#44403c', size: 1, maxHp: 120, maxPerGroup: 3, buildSeconds: 4 },
   barracks: { name: 'Казарма', width: cells(3), height: cells(3), color: '#92400e', wallHeight: 45, roofHeight: 30, roofColor: '#166534', size: 3, maxHp: 350, spawns: ['warrior'], maxPerGroup: 2, buildSeconds: 9 },
   dock: { name: 'Пристань', width: cells(2), height: cells(2), color: '#a8a29e', wallHeight: 30, roofHeight: 25, roofColor: '#0369a1', size: 2, maxHp: 150, spawns: ['boat', 'warship'], maxPerGroup: 2, buildSeconds: 6 },
   bridge: { name: 'Мост', width: cells(7), height: cells(2), color: '#92400e', image: 'bridge.svg', passable: true },
   'bridge-vertical': { name: 'Мост', width: cells(2), height: cells(7), color: '#92400e', image: 'bridge-vertical.svg', passable: true },
+  // Месторождения: нейтральные препятствия с конечным запасом ресурса.
+  tree: { name: 'Дерево', width: 10, height: 10, color: '#7c4a1e', wallHeight: 80, branchColor: '#16a34a', resource: 'wood', resourceAmount: 30 },
+  forest: { name: 'Лес', width: cells(2), height: cells(2), color: '#7c4a1e', groundColor: '#5d4037', branchColor: '#16a34a', resource: 'wood', resourceAmount: 150, shape: 'grove' },
+  stone: { name: 'Камень', width: cells(1.5), height: cells(1.5), color: '#9ca3af', resource: 'stone', resourceAmount: 100, shape: 'rocks' },
+  ore: { name: 'Руда', width: cells(1.5), height: cells(1.5), color: '#64748b', resource: 'ore', resourceAmount: 80, shape: 'rocks' },
+  gold: { name: 'Золото', width: cells(1.5), height: cells(1.5), color: '#a8a29e', resource: 'gold', resourceAmount: 60, shape: 'rocks' },
+  // Склад: сюда рабочие приносят добытый ресурс
+  warehouse: { name: 'Склад', width: cells(2), height: cells(2), color: '#713f12', wallHeight: 55, roofHeight: 30, roofColor: '#57534e', roofType: 'pyramid', size: 2, maxHp: 250, maxPerGroup: 2, buildSeconds: 8 },
 }
 
 export const UNIT_TYPES: Record<string, UnitType> = {
-  worker: { name: 'Рабочий', width: 24, height: 40, color: '#0000ff', speedPxPerSecond: 80, maxHp: 50, strength: 5, attackSpeed: 1, buildSeconds: 3, maxPerGroup: 6, terrain: 'land' },
-  warrior: { name: 'Воин', width: 32, height: 52, color: '#ff0000', speedPxPerSecond: 150, maxHp: 100, strength: 15, attackSpeed: 1.5, buildSeconds: 6, maxPerGroup: 10, terrain: 'land' },
+  worker: { name: 'Рабочий', width: 24, height: 40, color: '#0000ff', speedPxPerSecond: 80, maxHp: 50, strength: 5, attackSpeed: 1, buildSeconds: 3, maxPerGroup: 6, terrain: 'land', weapon: 'hammer' },
+  warrior: { name: 'Воин', width: 32, height: 52, color: '#ff0000', speedPxPerSecond: 150, maxHp: 100, strength: 15, attackSpeed: 1.5, buildSeconds: 6, maxPerGroup: 10, terrain: 'land', weapon: 'axe' },
   boat: { name: 'Лодка', width: 84, height: 46, color: '#c2853b', speedPxPerSecond: 150, maxHp: 80, strength: 0, attackSpeed: 0, buildSeconds: 6, maxPerGroup: 5, terrain: 'water', shape: 'boat' },
   warship: { name: 'Военный корабль', width: 132, height: 72, color: '#8b9199', speedPxPerSecond: 110, maxHp: 250, strength: 30, attackSpeed: 1, buildSeconds: 8, maxPerGroup: 3, terrain: 'water', shape: 'warship' },
 }
@@ -77,6 +85,27 @@ export const START_OBJECTS: StaticObject[] = [
   { id: 27, type: 'dock', group: 2, hp: 150, position: { x: 850, y: -200 } },
   { id: 28, type: 'bridge', group: 0, position: { x: -225, y: 300 } },
   { id: 29, type: 'bridge-vertical', group: 0, position: { x: 400, y: -545 } },
+  { id: 31, type: 'warehouse', group: 1, hp: 250, position: { x: -850, y: 450 } },
+  { id: 32, type: 'warehouse', group: 2, hp: 250, position: { x: 600, y: 675 } },
+  { id: 33, type: 'warehouse', group: 3, hp: 250, position: { x: 350, y: -850 } },
+  { id: 34, type: 'forest', group: 0, position: { x: -1150, y: 300 } },
+  { id: 35, type: 'forest', group: 0, position: { x: -1150, y: 400 } },
+  { id: 36, type: 'forest', group: 0, position: { x: 750, y: 800 } },
+  { id: 37, type: 'forest', group: 0, position: { x: 1000, y: 150 } },
+  { id: 38, type: 'forest', group: 0, position: { x: -500, y: -1250 } },
+  { id: 39, type: 'forest', group: 0, position: { x: 1000, y: 50 } },
+  { id: 40, type: 'forest', group: 0, position: { x: 1000, y: 150 } },
+  { id: 41, type: 'forest', group: 0, position: { x: 400, y: -1350 } },
+  { id: 42, type: 'stone', group: 0, position: { x: -1050, y: -700 } },
+  { id: 43, type: 'stone', group: 0, position: { x: -1150, y: -700 } },
+  { id: 44, type: 'stone', group: 0, position: { x: -400, y: 1200 } },
+  { id: 45, type: 'stone', group: 0, position: { x: -300, y: 1200 } },
+  { id: 46, type: 'ore', group: 0, position: { x: -650, y: -1200 } },
+  { id: 47, type: 'ore', group: 0, position: { x: -650, y: -1300 } },
+  { id: 48, type: 'ore', group: 0, position: { x: 300, y: 1200 } },
+  { id: 49, type: 'ore', group: 0, position: { x: 400, y: 1200 } },
+  { id: 50, type: 'gold', group: 0, position: { x: 1200, y: -1100 } },
+  { id: 51, type: 'gold', group: 0, position: { x: 1200, y: -1000 } },
 ]
 
 const START_UNITS: Unit[] = [

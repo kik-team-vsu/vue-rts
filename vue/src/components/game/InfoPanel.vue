@@ -10,6 +10,7 @@
         <div>Жизни: {{ unit.hp }} / {{ unitType.maxHp }}</div>
         <div>Сила: {{ unitType.strength }}</div>
         <div>Скорость атаки: {{ unitType.attackSpeed }}</div>
+        <div v-if="unitWeapon">Орудие: {{ unitWeapon }}</div>
         <div>Скорость: {{ unitSpeed }}</div>
         <div>Местность: {{ unitTerrain }}</div>
         <div>{{ unitAction }}</div>
@@ -17,6 +18,10 @@
       <template v-else-if="buildingType">
         <div>Жизни: {{ selected.hp }} / {{ buildingType.maxHp }}</div>
         <div>Размер: {{ buildingType.size }}×{{ buildingType.size }}</div>
+      </template>
+      <template v-else-if="depositResource">
+        <div>Ресурс: {{ RESOURCE_NAMES[depositResource] }}</div>
+        <div>Запас: {{ selected.amount }} / {{ depositType.resourceAmount }}</div>
       </template>
     </template>
     <template v-else-if="selectedUnits.length > 1">
@@ -90,6 +95,27 @@ const buildingType = computed(() => {
   return null
 })
 
+// характеристики месторождения (объекта с ресурсом): показываем тип ресурса и запас
+const depositType = computed(() => {
+  if (unit.value || !selected.value) {
+    return null
+  }
+  const type = OBJECT_TYPES[selected.value.type]
+  if ('resource' in type && type.resource) {
+    return type
+  }
+  return null
+})
+
+const depositResource = computed(() => depositType.value?.resource ?? null)
+
+const RESOURCE_NAMES = {
+  wood: 'Древесина',
+  stone: 'Камень',
+  ore: 'Руда',
+  gold: 'Золото',
+}
+
 const groupName = computed(() => {
   if (selected.value && selected.value.group > 0) {
     return 'Группа: ' + selected.value.group
@@ -114,6 +140,18 @@ const TERRAIN_NAMES = {
 const unitTerrain = computed(() => {
   if (unitType.value) {
     return TERRAIN_NAMES[unitType.value.terrain ?? 'both']
+  }
+})
+
+const WEAPON_NAMES = {
+  axe: 'Топор',
+  hammer: 'Молоток',
+}
+
+const unitWeapon = computed(() => {
+  const weapon = unitType.value?.weapon
+  if (weapon) {
+    return WEAPON_NAMES[weapon]
   }
 })
 
